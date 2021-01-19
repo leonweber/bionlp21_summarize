@@ -69,7 +69,7 @@ def print_stats(data: DataFrame):
 def save_dataset(data: DataFrame, output_dir: Path):
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    train, val = train_test_split(data, test_size=0.1, stratify=data["question_word_norm"])
+    train, val = train_test_split(data, test_size=0.5, stratify=data["question_word_norm"])
     splits = {"train": train, "val": val}
 
     for split, split_data in splits.items():
@@ -91,4 +91,4 @@ if __name__ == "__main__":
     data = read_and_clean_data(Path("data/MeQSum_ACL2019_BenAbacha_Demner-Fushman.csv"))
     print_stats(data)
 
-    save_dataset(data, Path("data"))
+    save_dataset(data, Path("data/50_50"))
