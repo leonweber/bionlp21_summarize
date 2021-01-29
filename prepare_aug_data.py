@@ -3,8 +3,6 @@ import shutil
 import pandas as pd
 import spacy
 
-from flair.models import MultiTagger
-from flair.tokenization import SciSpacySentenceSplitter
 from nltk import sent_tokenize
 from pandas import DataFrame
 from scispacy.linking import EntityLinker
@@ -30,6 +28,9 @@ def calc_sentence_diff(row):
 
 
 def append_has_hunflair_entities(data: DataFrame) -> DataFrame:
+    from flair.models import MultiTagger
+    from flair.tokenization import SciSpacySentenceSplitter
+
     hunflair = MultiTagger.load("hunflair")
     splitter = SciSpacySentenceSplitter()
 
@@ -162,6 +163,9 @@ def extend_folds(folds_dir: Path, extend_data_dir: Path, output_dir: Path):
 
         source_writer.close()
         target_writer.close()
+
+        shutil.copy(fold_dir / "val.source", fold_out_dir / "val.source")
+        shutil.copy(fold_dir / "val.target", fold_out_dir / "val.target")
 
         shutil.copy(fold_dir / "test.source", fold_out_dir / "test.source")
         shutil.copy(fold_dir / "test.target", fold_out_dir / "test.target")
