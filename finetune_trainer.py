@@ -318,7 +318,9 @@ def main():
         logger.info("*** Evaluate ***")
 
         metrics = trainer.evaluate(
-            metric_key_prefix="val", max_length=data_args.val_max_target_length, num_beams=data_args.eval_beams
+            metric_key_prefix="val",
+            #max_length=data_args.val_max_target_length,
+            #num_beams=data_args.eval_beams
         )
         metrics["val_n_objs"] = data_args.n_val
         metrics["val_loss"] = round(metrics["val_loss"], 4)
