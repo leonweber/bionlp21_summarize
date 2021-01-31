@@ -147,3 +147,4 @@ dmypy.json
 data/augmention
 .sync*
 _eval
+_test
