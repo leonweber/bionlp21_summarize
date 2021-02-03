@@ -189,9 +189,9 @@ if __name__ == "__main__":
         # quora_all_dir = aug_data_dir / "quora_all"
         # save_data(quora_data, quora_all_dir, "data")
 
-        quora_hard = quora_data[quora_data["sent_diff"] >= 2]
-        quora_hard_dir = aug_data_dir / "quora_hard"
-        save_data(quora_data, quora_hard_dir)
+        quora_hard = quora_data[quora_data["sent_diff"] >= 3]
+        quora_hard_dir = aug_data_dir / "quora_hard3"
+        save_data(quora_hard, quora_hard_dir)
         print(f"Found {len(quora_hard)} hard question pairs")
 
         # quora_umls_dir = aug_data_dir / "quora_umls"
@@ -221,8 +221,8 @@ if __name__ == "__main__":
 
         extend_folds(
             Path("data/splits_s777"),
-            Path("data/augmention/quora_mesh"),
-            Path("data/splits_s777_mesh")
+            Path("data/augmention/quora_hard"),
+            Path("data/splits_s777_hard")
         )
 
         extend_folds(

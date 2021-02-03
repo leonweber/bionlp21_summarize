@@ -25,9 +25,11 @@ logger = logging.getLogger(__name__)
 
 class RougeEvaluator(SentenceEvaluator):
 
-    def __init__(self, examples: List[InputExample], batch_size: int = 32, show_progress_bar: bool = False):
+    def __init__(self, examples: List[InputExample], batch_size: int = 32, save_predictions: bool = False,
+                 show_progress_bar: bool = False):
         self.examples = examples
         self.batch_size = batch_size
+        self.save_predictions = save_predictions
 
         self.sentences1, self.sentences2 = self.extract_sentences(examples)
 
@@ -66,7 +68,8 @@ class RougeEvaluator(SentenceEvaluator):
         score = calculate_rouge(best_sources, best_targets)
 
         if output_path is not None:
-            tsv_file = Path(output_path) / "rouge_results.tsv"
+            output_dir = Path(output_path)
+            tsv_file = output_dir / "rouge_results.tsv"
             sorted_keys = sorted(score.keys())
 
             writer = None
@@ -79,6 +82,11 @@ class RougeEvaluator(SentenceEvaluator):
             writer.write("\t".join([str(epoch)] + [str(score[key]) for key in sorted_keys]) + "\n")
             writer.flush()
             writer.close()
+
+            if self.save_predictions:
+                pred_file = output_dir / "predictions.txt"
+                with pred_file.open("w") as writer:
+                    writer.write("\n".join(best_targets))
 
         return score["rougeLsum"]
 
@@ -154,43 +162,72 @@ def read_examples(input_file: Path, type_func: Callable):
     return examples
 
 
-def train_sentence_transformer(model_name: str, data_dir: Path):
+def train_sentence_transformer(model_name: str, data_dir: Path, output_dir: Path, epochs: int):
     # Define the model. Either from scratch of by loading a pre-trained model
     model = SentenceTransformer(model_name)
 
-    train_examples = read_examples(data_dir / "train.tsv", float)[:160]
+    train_examples = read_examples(data_dir / "train.tsv", float)
     train_dataloader = DataLoader(train_examples, shuffle=True, batch_size=8)
     train_loss = losses.CosineSimilarityLoss(model)
 
-    test_examples = read_examples(data_dir / "test.tsv", float)[:200]
+    test_examples = read_examples(data_dir / "test.tsv", float)
 
     test_sentences1 = [ex.texts[0] for ex in test_examples]
     test_sentences2 = [ex.texts[1] for ex in test_examples]
     test_labels = [int(ex.label) for ex in test_examples]
-    cl_evaluator = BinaryClassificationEvaluator(test_sentences1, test_sentences2, test_labels, name="Classification")
+    cl_evaluator = BinaryClassificationEvaluator(test_sentences1, test_sentences2, test_labels)
 
-    evaluators = SequentialEvaluator(
-        evaluators=[
-            #cl_evaluator,
-            RougeEvaluator(test_examples)
-        ]
-    )
+    seq_evaluator = SequentialEvaluator(evaluators=[
+        cl_evaluator,
+        RougeEvaluator(test_examples)
+    ])
 
     model.fit(
         train_objectives=[(train_dataloader, train_loss)],
-        evaluator=evaluators,
+        evaluator=seq_evaluator,
         evaluation_steps=len(train_dataloader),
-        epochs=10,
+        epochs=epochs,
         warmup_steps=100,
-        output_path="_test/test-model"
+        output_path=str(output_dir)
     )
+
+    final_out_dir = output_dir / "final"
+    final_out_dir.mkdir(parents=True, exist_ok=True)
+
+    seq_evaluator = SequentialEvaluator(evaluators=[
+        cl_evaluator,
+        RougeEvaluator(test_examples, save_predictions=True)
+    ])
+
+    model.evaluate(seq_evaluator, str(final_out_dir))
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    #parser.add_argument("data_dir", type=Path)
+    subparsers = parser.add_subparsers(dest="action")
+
+    gen_data_parser = subparsers.add_parser("gen_data")
+    gen_data_parser.add_argument("--data_dir", type=Path, required=True)
+    gen_data_parser.add_argument("--output_dir", type=Path, required=True)
+    gen_data_parser.add_argument("--sim_metric", type=str, default="", required=False)
+    gen_data_parser.add_argument("--neg", type=int, default=5, required=False)
+
+    train_parser = subparsers.add_parser("train")
+    train_parser.add_argument("--model", type=str, required=True)
+    train_parser.add_argument("--data_dir", type=Path, required=True)
+    train_parser.add_argument("--output_dir", type=Path, required=True)
+    train_parser.add_argument("--epochs", type=int, default=20, required=False)
+
     args = parser.parse_args()
 
-    generate_train_data(Path("data/splits_s777/fold_0"), 5, "", Path("_test/data"))
-    train_sentence_transformer("distilbert-base-nli-mean-tokens", Path("_test/data"))
+    if args.action == "gen_data":
+        generate_train_data(
+            data_dir=args.data_dir,
+            output_dir=args.output_dir,
+            num_negative=args.neg,
+            sim_metrik=args.sim_metric
+        )
+
+    elif args.action == "train":
+        train_sentence_transformer(args.model, args.data_dir, args.output_dir, args.epochs)
 

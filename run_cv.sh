@@ -25,7 +25,7 @@ do
     --evaluation_strategy epoch \
     --predict_with_generate \
     --overwrite_output_dir \
-    --num_train_epochs 10
+    --num_train_epochs 25
 
   # Run prediction on fold i
   echo "Running prediction for fold $i"
