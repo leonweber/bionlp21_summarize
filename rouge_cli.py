@@ -11,9 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import fire
 
+from pytorch_lightning import seed_everything
 from utils import calculate_rouge, save_json
 
 
@@ -28,4 +28,5 @@ def calculate_rouge_path(pred_path, tgt_path, save_path=None, **kwargs):
 
 
 if __name__ == "__main__":
+    seed_everything(42)
     fire.Fire(calculate_rouge_path)
