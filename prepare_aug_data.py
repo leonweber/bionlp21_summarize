@@ -175,8 +175,11 @@ def extend_folds(folds_dir: Path, extend_data_dir: Path, output_dir: Path):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="action")
-    subparsers.add_parser("prepare_quora")
-    subparsers.add_parser("extend_folds")
+    prepare_parser = subparsers.add_parser("prepare_quora")
+
+    extend_parser = subparsers.add_parser("extend_folds")
+    extend_parser.add_argument("--input_dir", type=Path, required=True)
+
     args = parser.parse_args()
 
     aug_data_dir = Path("data/augmention")
@@ -207,28 +210,30 @@ if __name__ == "__main__":
         # save_data(hunflair_data, quora_hunflair_dir)
 
     elif args.action == "extend_folds":
+        input_name = args.input_dir.name
+
         extend_folds(
-            Path("data/splits_s777"),
+            args.input_dir,
             Path("data/augmention/quora_hunflair"),
-            Path("data/splits_s777_hunflair")
+            Path(f"data/{input_name}_hunflair")
         )
 
         extend_folds(
             Path("data/splits_s777"),
             Path("data/augmention/quora_umls"),
-            Path("data/splits_s777_umls")
+            Path(f"data/{input_name}_umls")
         )
 
         extend_folds(
             Path("data/splits_s777"),
             Path("data/augmention/quora_hard"),
-            Path("data/splits_s777_hard")
+            Path(f"data/{input_name}_hard")
         )
 
         extend_folds(
             Path("data/splits_s777"),
             Path("data/augmention/quora_all"),
-            Path("data/splits_s777_all")
+            Path(f"data/{input_name}_all")
         )
 
 

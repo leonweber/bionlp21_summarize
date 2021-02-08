@@ -100,7 +100,7 @@ def generate_and_save_splits(data: DataFrame, seed: int, output_dir: Path):
         fold_output_dir.mkdir(parents=True, exist_ok=True)
 
         save_texts(train_data, fold_output_dir, "train")
-        save_texts(train_data, fold_output_dir, "val")
+        save_texts(test_data, fold_output_dir, "val")
         save_texts(test_data, fold_output_dir, "test")
 
 
@@ -109,4 +109,4 @@ if __name__ == "__main__":
     print_stats(data)
 
     #save_dataset(data, Path("data/50_50"))
-    generate_and_save_splits(data, 777, Path("data/splits_s777"))
+    generate_and_save_splits(data, 17, Path("data/splits_s17"))
