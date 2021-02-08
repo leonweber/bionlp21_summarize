@@ -48,6 +48,7 @@ def generate_summaries_or_translations(
 ) -> Dict:
     """Save model.generate results to <out_file>, and return how long it took."""
     fout = Path(out_file).open("w", encoding="utf-8")
+    fout_all = Path(out_file + ".all").open("w", encoding="utf-8")
     model_name = str(model_name)
     model = AutoModelForSeq2SeqLM.from_pretrained(model_name).to(device)
     if fp16:
@@ -61,6 +62,8 @@ def generate_summaries_or_translations(
     use_task_specific_params(model, task)
     if prefix is None:
         prefix = prefix or getattr(model.config, "prefix", "") or ""
+
+    sample_id = -1
     for examples_chunk in tqdm(list(chunks(examples, batch_size))):
         examples_chunk = [prefix + text for text in examples_chunk]
         batch = tokenizer(examples_chunk, return_tensors="pt", truncation=True, padding="longest").to(device)
@@ -69,13 +72,26 @@ def generate_summaries_or_translations(
             attention_mask=batch.attention_mask,
             **generate_kwargs,
         )
+
         dec = tokenizer.batch_decode(summaries, skip_special_tokens=True, clean_up_tokenization_spaces=False)
-        for hypothesis in dec:
-            fout.write(hypothesis + "\n")
-            fout.flush()
+        num_sequences = generate_kwargs["num_return_sequences"] if "num_return_sequences" in generate_kwargs else 1
+
+        for i, hypothesis in enumerate(dec):
+            # Take first output for "normal" prediction"
+            if i % num_sequences == 0:
+                fout.write(hypothesis + "\n")
+                fout.flush()
+                sample_id += 1
+
+            fout_all.write(f"{sample_id}\t{hypothesis}\n")
+            fout_all.flush()
+
     fout.close()
+    fout_all.close()
+
     runtime = int(time.time() - start_time)  # seconds
     n_obs = len(examples)
+
     return dict(n_obs=n_obs, runtime=runtime, seconds_per_sample=round(runtime / n_obs, 4))
 
 
