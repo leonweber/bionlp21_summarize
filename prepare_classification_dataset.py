@@ -17,40 +17,71 @@ def save_examples(examples: List[InputExample], output_file: Path):
             writer.write(f"{example.guid}\t{example.texts[0]}\t{example.texts[1]}\t{example.label}\n")
 
 
+def build_negativ_examples(examples: List[InputExample], num_negative: int, sim_metric: str):
+    print(f"Building negative instances for {len(examples)} examples")
+    all_targets = [ex.texts[1] for ex in examples]
+    neg_examples = []
+
+    for example in tqdm(examples, total=len(examples)):
+        target = example.texts[1]
+        if sim_metric.startswith("rouge"):
+            best_rouge = calculate_rouge([target], [target])[sim_metric]
+
+        for neg_target in random.sample(all_targets, num_negative):
+            if neg_target == target:
+                continue
+
+            score = 0.0
+            if sim_metric.startswith("rouge"):
+                score = calculate_rouge([neg_target], [target])[sim_metric] / best_rouge
+
+            neg_examples.append(InputExample(guid=example.guid, texts=[example.texts[0], neg_target], label=score))
+
+    return neg_examples
+
+
 def generate_data_from_gold_standard(data_dir: Path, num_negative: int, sim_metric: str, output_dir: Path):
-    output_dir.mkdir(parents=True, exist_ok=True)
+    train_examples = []
+    test_examples = []
+    global_id = 0
+    test_file = None
 
-    splits = ["train", "test"]
+    for i in range(10):
+        fold_dir = data_dir / f"fold_{i}"
 
-    for split in splits:
-        source_file = data_dir / f"{split}.source"
+        source_file = fold_dir / f"test.source"
         sources = [text.strip() for text in source_file.open("r").readlines()]
 
-        target_file = data_dir / f"{split}.target"
+        target_file = fold_dir / f"test.target"
         targets = [text.strip() for text in target_file.open("r").readlines()]
 
-        gen_examples = []
-        for i, (source, target) in tqdm(enumerate(zip(sources, targets)), total=len(sources)):
-            gen_examples.append(InputExample(guid=i, texts=[source, target], label=1.0))
+        examples = []
+        for source, target in tqdm(zip(sources, targets), total=len(sources)):
+            examples.append(InputExample(guid=global_id, texts=[source, target], label=1.0))
+            global_id += 1
 
-            if sim_metric.startswith("rouge"):
-                best_rouge = calculate_rouge([target], [target])[sim_metric]
+        if (i + 1) % 10 == 0:
+            test_examples += examples
+            test_file = target_file
+        else:
+            train_examples += examples
 
-            for neg_target in random.sample(targets, num_negative):
-                if neg_target == target:
-                    continue
+    train_examples = train_examples + build_negativ_examples(train_examples, num_negative, sim_metric)
+    test_examples = test_examples + build_negativ_examples(test_examples, num_negative, sim_metric)
 
-                score = 0.0
-                if sim_metric.startswith("rouge"):
-                    score = calculate_rouge([neg_target], [target])[sim_metric] / best_rouge
-
-                gen_examples.append(InputExample(guid=i, texts=[source, neg_target], label=score))
-
-        output_file = output_dir / f"{split}.tsv"
-        save_examples(gen_examples, output_file)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    save_examples(train_examples, output_dir / f"train.tsv")
+    save_examples(test_examples, output_dir / f"test.tsv")
+    shutil.copy(test_file, output_dir / "test.target")
 
 
-def generate_data_from_predictions(data_dir: Path, pred_dir: Path, output_dir: Path, sim_metric: str = "rougeL"):
+def generate_data_from_predictions(
+        data_dir: Path,
+        pred_dir: Path,
+        output_dir: Path,
+        sim_metric: str = "rougeL",
+        binary_score: bool = False
+):
     train_examples = []
     test_examples = []
 
@@ -84,9 +115,15 @@ def generate_data_from_predictions(data_dir: Path, pred_dir: Path, output_dir: P
 
             candidates = predictions[j]
             scores = [calculate_rouge([c], [target])[sim_metric] for c in candidates]
+            max_score = max(scores)
 
             for candidate, score in zip(candidates, scores):
-                examples.append(InputExample(guid=str(global_id), texts=[source, candidate], label=(score/best_rouge)))
+                if binary_score:
+                    score = 1.0 if score == max_score else 0.0
+                else:
+                    score = score / best_rouge
+
+                examples.append(InputExample(guid=str(global_id), texts=[source, candidate], label=score))
 
             global_id += 1
 
@@ -117,6 +154,7 @@ if __name__ == "__main__":
     form_pred_data_parser.add_argument("--pred_dir", type=Path, required=True)
     form_pred_data_parser.add_argument("--output_dir", type=Path, required=True)
     form_pred_data_parser.add_argument("--sim_metric", type=str, default="rougeL", required=False)
+    form_pred_data_parser.add_argument("--binary", type=bool, default=False, required=False)
 
     args = parser.parse_args()
 
@@ -133,5 +171,6 @@ if __name__ == "__main__":
             data_dir=args.data_dir,
             pred_dir=args.pred_dir,
             output_dir=args.output_dir,
-            sim_metric=args.sim_metric
+            sim_metric=args.sim_metric,
+            binary_score=args.binary
         )
