@@ -57,7 +57,7 @@ def evaluate(
         best_targets.append(pred_target)
 
         if best_gold_scores is not None:
-            score = best_scores[id]
+            score = example.label
             if score == best_gold_scores[id]:
                 num_best_target += 1
 
