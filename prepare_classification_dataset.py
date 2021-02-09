@@ -50,7 +50,7 @@ def generate_data_from_gold_standard(data_dir: Path, num_negative: int, sim_metr
         save_examples(gen_examples, output_file)
 
 
-def generate_data_from_predictions(data_dir: Path, pred_dir: Path, output_dir: Path, sim_metric: str = "rouge2"):
+def generate_data_from_predictions(data_dir: Path, pred_dir: Path, output_dir: Path, sim_metric: str = "rougeL"):
     train_examples = []
     test_examples = []
 
@@ -58,7 +58,7 @@ def generate_data_from_predictions(data_dir: Path, pred_dir: Path, output_dir: P
     global_id = 0
 
     for i in range(10):
-        prediction_file = pred_dir / f"predictions_{i}.txt.all"
+        prediction_file = pred_dir / f"fold_{i}.txt.all"
         if not prediction_file.exists():
             print(f"Can't find {prediction_file}")
             continue
@@ -116,7 +116,7 @@ if __name__ == "__main__":
     form_pred_data_parser.add_argument("--data_dir", type=Path, required=True)
     form_pred_data_parser.add_argument("--pred_dir", type=Path, required=True)
     form_pred_data_parser.add_argument("--output_dir", type=Path, required=True)
-    form_pred_data_parser.add_argument("--sim_metric", type=str, default="rouge1", required=False)
+    form_pred_data_parser.add_argument("--sim_metric", type=str, default="rougeL", required=False)
 
     args = parser.parse_args()
 

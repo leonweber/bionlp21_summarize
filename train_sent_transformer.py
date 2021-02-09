@@ -2,16 +2,13 @@ import argparse
 import logging
 
 from collections import defaultdict
-
 from pathlib import Path
-from typing import Callable, List
+from typing import List
 
 from sentence_transformers import InputExample, LoggingHandler, CrossEncoder
 from sentence_transformers.evaluation import SentenceEvaluator, SequentialEvaluator
-from sklearn.metrics import mean_squared_error
 from torch.utils.data import DataLoader
-
-from utils import calculate_rouge
+from run_eval_sent_transformer import evaluate, read_examples
 
 logging.basicConfig(
     format='%(asctime)s - %(message)s',
@@ -28,7 +25,7 @@ class RougeEvaluator(SentenceEvaluator):
             self,
             examples: List[InputExample],
             gold_targets: List[str],
-            batch_size: int = 32,
+            batch_size: int = 12,
             save_predictions: bool = False,
             show_progress_bar: bool = False
     ):
@@ -52,36 +49,12 @@ class RougeEvaluator(SentenceEvaluator):
     def __call__(self, model: CrossEncoder, output_path: str = None, epoch: int = -1, steps: int = -1) -> float:
         logger.info("Running rouge evaluation ...")
 
-        scores = model.predict(self.sentences, self.batch_size, apply_softmax=True)
-
-        best_scores = defaultdict(lambda: -1)
-        best_instances = {}
-
-        # Get example with highest score per id
-        diff_values = []
-        for example, score in zip(self.examples, scores):
-            if score > best_scores[example.guid]:
-                best_scores[example.guid] = score
-                best_instances[example.guid] = example
-
-            diff_values.append(abs(score - example.label))
-
-        best_targets = []
-        num_best_target = 0
-        for id in sorted(best_instances.keys()):
-            example = best_instances[id]
-            pred_target = example.texts[1]
-            best_targets.append(pred_target)
-
-            score = best_scores[id]
-            if score == self.best_gold_scores[id]:
-                num_best_target += 1
-
-        logger.info(f"Calculating rouge scores of {len(best_targets)} / {len(self.gold_targets)} examples")
-        score = calculate_rouge(best_targets, self.gold_targets)
-
-        score["num_best_target"] = num_best_target
-        score["mse"] = mean_squared_error(self.gold_scores, scores)
+        score, best_targets = evaluate(
+            model=model,
+            examples=self.examples,
+            gold_targets=self.gold_targets,
+            batch_size=self.batch_size
+        )
 
         if output_path is not None:
             output_dir = Path(output_path)
@@ -104,26 +77,12 @@ class RougeEvaluator(SentenceEvaluator):
                 with pred_file.open("w") as writer:
                     writer.write("\n".join(best_targets))
 
-        #FIXME: Think about - which metric to perform model selection (rouge1, rouge2, .., mse)?
-        return score["rougeLsum"]
-
-
-def read_examples(input_file: Path, type_func: Callable = float):
-    examples = []
-
-    with input_file.open("r") as reader:
-        for line in reader.readlines():
-            id, source, target, label = line.split("\t")
-            label = type_func(label)
-
-            examples.append(InputExample(guid=int(id), texts=[source, target], label=label))
-
-    return examples
-
+        #FIXME: Think about - which metric to perform model selection (rougeL is used as evaluation for the tasks)?
+        return score["rougeL"]
 
 def train_sentence_transformer(model_name: str, data_dir: Path, output_dir: Path,
                                epochs: int, batch_size: int):
-    model = CrossEncoder(model_name)
+    model = CrossEncoder(model_name, num_labels=1)
 
     train_examples = read_examples(data_dir / "train.tsv")
     train_dataloader = DataLoader(train_examples, shuffle=True, batch_size=batch_size)
@@ -142,7 +101,8 @@ def train_sentence_transformer(model_name: str, data_dir: Path, output_dir: Path
         evaluation_steps=len(train_dataloader),
         epochs=epochs,
         warmup_steps=100,
-        output_path=str(output_dir)
+        output_path=str(output_dir),
+        save_best_model=True,
     )
 
 

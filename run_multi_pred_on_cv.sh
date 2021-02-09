@@ -1,6 +1,5 @@
 #!/bin/bash
 
-TEMP_DIR=tmp
 EPOCHS=25
 COPY_MODEL=true
 
@@ -22,6 +21,6 @@ do
 
   # Run prediction on fold i
   echo "Running prediction for fold $i"
-  CUDA_VISIBLE_DEVICES=2 python run_eval.py $FOLD_MODEL_DIR  $FOLD_DATA_DIR/test.source $PRED_FILE --num_beams 10 --num_return_sequences 10
+  CUDA_VISIBLE_DEVICES=0,1 python run_eval.py $FOLD_MODEL_DIR  $FOLD_DATA_DIR/test.source $PRED_FILE --num_beams 10 --num_return_sequences 10
 
 done
