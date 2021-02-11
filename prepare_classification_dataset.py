@@ -151,7 +151,7 @@ if __name__ == "__main__":
 
     form_pred_data_parser = subparsers.add_parser("from_pred_data")
     form_pred_data_parser.add_argument("--data_dir", type=Path, required=True)
-    form_pred_data_parser.add_argument("--pred_dir", type=Path, required=True)
+    form_pred_data_parser.add_argument("--prediction_dir", type=Path, required=True)
     form_pred_data_parser.add_argument("--output_dir", type=Path, required=True)
     form_pred_data_parser.add_argument("--sim_metric", type=str, default="rougeL", required=False)
     form_pred_data_parser.add_argument("--binary", type=bool, default=False, required=False)
@@ -169,7 +169,7 @@ if __name__ == "__main__":
     elif args.action == "from_pred_data":
         generate_data_from_predictions(
             data_dir=args.data_dir,
-            pred_dir=args.pred_dir,
+            pred_dir=args.prediction_dir,
             output_dir=args.output_dir,
             sim_metric=args.sim_metric,
             binary_score=args.binary
