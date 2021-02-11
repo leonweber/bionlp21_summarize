@@ -1,3 +1,5 @@
+from typing import Dict
+
 import pandas as pd
 import numpy as np
 
@@ -29,9 +31,9 @@ def norm_question_type(data: DataFrame, min_threshold: int):
     return _perform_norm_question_word
 
 
-def read_and_clean_data(input_file: Path, min_threshold: int) -> DataFrame:
+def read_and_clean_data(input_file: Path, column_mapping: Dict[str, str], min_threshold: int) -> DataFrame:
     data = pd.read_csv(input_file, sep="\t")
-    data = data.rename(columns={"CHQ": "source", "Summary": "target"})
+    data = data.rename(columns=column_mapping)
     data["source"] = data["source"].apply(clean_text)
     data["target"] = data["target"].apply(clean_text)
 
@@ -105,8 +107,22 @@ def generate_and_save_splits(data: DataFrame, seed: int, output_dir: Path):
 
 
 if __name__ == "__main__":
-    data = read_and_clean_data(Path("data/MeQSum_ACL2019_BenAbacha_Demner-Fushman.csv"), 10)
-    print_stats(data)
+    # Read and convert training data
 
-    #save_dataset(data, Path("data/50_50"))
-    generate_and_save_splits(data, 17, Path("data/splits_s17"))
+    # data = read_and_clean_data(
+    #     input_file=Path("data/MeQSum_ACL2019_BenAbacha_Demner-Fushman.csv"),
+    #     column_mapping={"CHQ": "source", "Summary": "target"},
+    #     min_threshold=10
+    # )
+    # print_stats(data)
+    # #save_dataset(data, Path("data/50_50"))
+    # generate_and_save_splits(data, 17, Path("data/splits_s17"))
+
+    val_data = read_and_clean_data(
+        input_file=Path("data/MEDIQA2021-Task1-QuestionSummarization-ValidationSet.csv"),
+        column_mapping={"NLM Question": "source", "Summary": "target"},
+        min_threshold=10
+    )
+    save_texts(val_data, Path("data/task_val"), "task_val")
+
+

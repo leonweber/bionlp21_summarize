@@ -139,6 +139,27 @@ def generate_data_from_predictions(
     shutil.copy(test_file, output_dir / "test.target")
 
 
+def generate_data_from_test_prediction(source_file: Path, prediction_file: Path, output_file: Path):
+    source_texts = {i: line.strip() for i, line in enumerate(source_file.open("r").readlines())}
+
+    predictions = defaultdict(list)
+    for line in prediction_file.open("r"):
+        parts = line.split("\t")
+        predictions[int(parts[0])] += [parts[1].strip()]
+
+    writer = output_file.open("w", encoding="utf8")
+    for i, source in source_texts.items():
+        target_candidates = predictions[i]
+        if len(target_candidates) == 0:
+            raise AssertionError(f"Can't find predictions for row {i}") # Should never happen :-D
+
+        for target in target_candidates:
+            writer.write("\t".join([str(i), source, target, "0.0"]) + "\n")
+            writer.flush()
+
+    writer.close()
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="action")
@@ -149,12 +170,17 @@ if __name__ == "__main__":
     from_gs_data_parser.add_argument("--sim_metric", type=str, default="", required=False)
     from_gs_data_parser.add_argument("--neg", type=int, default=5, required=False)
 
-    form_pred_data_parser = subparsers.add_parser("from_pred_data")
-    form_pred_data_parser.add_argument("--data_dir", type=Path, required=True)
-    form_pred_data_parser.add_argument("--prediction_dir", type=Path, required=True)
-    form_pred_data_parser.add_argument("--output_dir", type=Path, required=True)
-    form_pred_data_parser.add_argument("--sim_metric", type=str, default="rougeL", required=False)
-    form_pred_data_parser.add_argument("--binary", type=bool, default=False, required=False)
+    from_pred_data_parser = subparsers.add_parser("from_pred_data")
+    from_pred_data_parser.add_argument("--data_dir", type=Path, required=True)
+    from_pred_data_parser.add_argument("--prediction_dir", type=Path, required=True)
+    from_pred_data_parser.add_argument("--output_dir", type=Path, required=True)
+    from_pred_data_parser.add_argument("--sim_metric", type=str, default="rougeL", required=False)
+    from_pred_data_parser.add_argument("--binary", type=bool, default=False, required=False)
+
+    from_test_data_parser = subparsers.add_parser("from_test_data")
+    from_test_data_parser.add_argument("--source_file", type=Path, required=True)
+    from_test_data_parser.add_argument("--prediction_file", type=Path, required=True)
+    from_test_data_parser.add_argument("--output_file", type=Path, required=True)
 
     args = parser.parse_args()
 
@@ -173,4 +199,11 @@ if __name__ == "__main__":
             output_dir=args.output_dir,
             sim_metric=args.sim_metric,
             binary_score=args.binary
+        )
+
+    elif args.action == "from_test_data":
+        generate_data_from_test_prediction(
+            source_file=args.source_file,
+            prediction_file=args.prediction_file,
+            output_file=args.output_file
         )

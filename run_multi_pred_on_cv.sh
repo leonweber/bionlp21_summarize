@@ -22,7 +22,7 @@ do
 
   # Run prediction on fold i
   echo "Running prediction for fold $i"
-  CUDA_VISIBLE_DEVICES=1 python run_eval.py $FOLD_MODEL_DIR  $FOLD_DATA_DIR/test.source $PRED_FILE --num_beams 20 --num_return_sequences 10
+  CUDA_VISIBLE_DEVICES=1 python run_eval.py $FOLD_MODEL_DIR  $FOLD_DATA_DIR/test.source $PRED_FILE --num_beams 10 --num_return_sequences 10
 
 done
 
