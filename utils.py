@@ -21,19 +21,21 @@ import pickle
 import socket
 from logging import getLogger
 from pathlib import Path
+from bisect import bisect_right, bisect_left
 from typing import Callable, Dict, Iterable, List, Tuple, Union
 
 import git
 import numpy as np
 import torch
 import torch.distributed as dist
+import flair
 from rouge_score import rouge_scorer, scoring
 from sacrebleu import corpus_bleu
 from torch import nn
 from torch.utils.data import Dataset, Sampler
 
 from sentence_splitter import add_newline_to_end_of_each_sentence
-from transformers import BartTokenizer, EvalPrediction, PreTrainedTokenizer
+from transformers import BartTokenizer, EvalPrediction, PreTrainedTokenizer, AutoTokenizer
 from transformers.file_utils import cached_property
 
 
@@ -44,6 +46,20 @@ try:
 except (ImportError, ModuleNotFoundError):
     FAIRSEQ_AVAILABLE = False
 
+def adapt_span(start, end, token_starts):
+    """
+    Adapt annotations to token spans
+    """
+    if 0 in token_starts[1:]:
+        idx_first_zero = token_starts[1:].index(0) + 1
+        token_starts = token_starts[:idx_first_zero]
+    start = int(start)
+    end = int(end)
+
+    new_start = bisect_right(token_starts, start) - 1
+    new_end = bisect_left(token_starts, end)
+
+    return new_start+1, new_end+1
 
 def label_smoothed_nll_loss(lprobs, target, epsilon, ignore_index=-100):
     """From fairseq"""
@@ -272,6 +288,40 @@ class Seq2SeqDataset(AbstractSeq2SeqDataset):
         batch_encoding["ids"] = torch.tensor([x["id"] for x in batch])
         return batch_encoding
 
+def sentence_to_tagged_string(sentence):
+    new_tokens = []
+    current_span_type = None
+    for token in sentence:
+        tag = token.get_tag("ner")
+        tag_value = tag.value
+        tag_type = "-".join(tag_value.split("-")[1:])
+
+        # anything that is not OUT is IN
+        in_span = False
+        if tag_value[0] != "O":
+            in_span = True
+
+        # single and begin tags start a new span
+        starts_new_span = False
+        if tag_value[0:2] == "B-":
+            starts_new_span = True
+
+        if (starts_new_span or not in_span) and current_span_type is not None:
+            new_tokens.append("</" + current_span_type + ">")
+            current_span_type = None
+        
+        if starts_new_span:
+            current_span_type = tag_type
+            new_tokens.append("<" + current_span_type + ">")
+        
+        new_tokens.append(token.text)
+    
+    if current_span_type is not None:
+        new_tokens.append("</" + current_span_type + ">")
+
+    return " ".join(new_tokens)
+
+
 
 class Seq2SeqDataCollator:
     def __init__(self, tokenizer, data_args, tpu_num_cores=None):
@@ -282,13 +332,27 @@ class Seq2SeqDataCollator:
         ), f"pad_token_id is not defined for ({self.tokenizer.__class__.__name__}), it must be defined."
         self.data_args = data_args
         self.tpu_num_cores = tpu_num_cores
+        self.bio_tokenizer = AutoTokenizer.from_pretrained("microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext")
+        self.tagger = flair.models.SequenceTagger.load("taggers/chqa-clean/best-model.pt")
+
         self.dataset_kwargs = {"add_prefix_space": True} if isinstance(tokenizer, BartTokenizer) else {}
+        self.dataset_kwargs["return_offsets_mapping"] = True
         if data_args.src_lang is not None:
             self.dataset_kwargs["src_lang"] = data_args.src_lang
         if data_args.tgt_lang is not None:
             self.dataset_kwargs["tgt_lang"] = data_args.tgt_lang
 
     def __call__(self, batch) -> Dict[str, torch.Tensor]:
+        # sentences = []
+        # for data in batch:
+        #     sentence = flair.data.Sentence(data["src_texts"])
+        #     sentences.append(sentence)
+        # self.tagger.predict(sentences)
+
+        # for data, sentence in zip(batch, sentences):
+        #     data["src_texts"] = sentence_to_tagged_string(sentence)
+
+
         if hasattr(self.tokenizer, "prepare_seq2seq_batch"):
             batch = self._encode(batch)
             input_ids, attention_mask, labels = (
@@ -303,10 +367,25 @@ class Seq2SeqDataCollator:
 
             labels = trim_batch(labels, self.pad_token_id)
             input_ids, attention_mask = trim_batch(input_ids, self.pad_token_id, attention_mask=attention_mask)
+        
+        sentences = []
+        for input_id in input_ids:
+            sentence = flair.data.Sentence(self.tokenizer.decode(input_id.tolist(), skip_special_tokens=True))
+            sentences.append(sentence)
+        self.tagger.predict(sentences)
+
+        entity_ids = torch.zeros_like(input_ids, device=input_ids.device)
+        for entity_id, sentence, offsets, input_id in zip(entity_ids, sentences, batch["offset_mapping"], input_ids):
+            token_starts = [i[0] for i in offsets[1:-1].tolist()]
+            for entity in sentence.get_spans():
+                start, end = adapt_span(entity.start_pos, entity.end_pos, token_starts)
+                entity_id[start:end] = self.tagger.tag_dictionary.item2idx[("B-" + entity.tag).encode()]
 
         batch = {
             "input_ids": input_ids,
             "attention_mask": attention_mask,
+            "entity_ids": entity_ids,
+            # "entity_ids": None,
             "labels": labels,
         }
         return batch

@@ -217,10 +217,13 @@ class Seq2SeqTrainer(Trainer):
             "num_beams": self.data_args.eval_beams if self.data_args is not None else self.config.num_beams,
         }
 
+
         if self.args.predict_with_generate and not self.args.prediction_loss_only:
             generated_tokens = self.model.generate(
                 inputs["input_ids"],
                 attention_mask=inputs["attention_mask"],
+                entity_ids=inputs["entity_ids"],
+                # entity_ids=None,
                 **gen_kwargs,
             )
             # in case the batch is shorter than max length, the output should be padded

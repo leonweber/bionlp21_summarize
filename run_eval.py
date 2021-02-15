@@ -21,12 +21,14 @@ import warnings
 from logging import getLogger
 from pathlib import Path
 from typing import Dict, List
+import flair
 
 import torch
 from tqdm import tqdm
 
-from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
-from utils import calculate_bleu, calculate_rouge, chunks, parse_numeric_n_bool_cl_kwargs, use_task_specific_params
+from transformers import AutoTokenizer
+from utils import adapt_span, calculate_bleu, calculate_rouge, chunks, parse_numeric_n_bool_cl_kwargs, sentence_to_tagged_string, use_task_specific_params
+from modeling_bart import BartForConditionalGeneration
 
 
 logger = getLogger(__name__)
@@ -49,12 +51,17 @@ def generate_summaries_or_translations(
     """Save model.generate results to <out_file>, and return how long it took."""
     fout = Path(out_file).open("w", encoding="utf-8")
     model_name = str(model_name)
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_name).to(device)
+    model = BartForConditionalGeneration.from_pretrained(model_name).to(device)
     if fp16:
         model = model.half()
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     logger.info(f"Inferred tokenizer type: {tokenizer.__class__}")  # if this is wrong, check config.model_type.
+
+    tagger = flair.models.SequenceTagger.load("taggers/chqa-clean/best-model.pt")
+    # tags = ["<" + i.replace("B-", "") + ">" for i in sorted(tagger.tag_dictionary.get_items()) if i.startswith("B-")]
+    # tags = ["</" + i.replace("B-", "") + ">" for i in sorted(tagger.tag_dictionary.get_items()) if i.startswith("B-")]
+    # tokenizer.add_tokens(tags)
 
     start_time = time.time()
     # update config with task specific params
@@ -63,10 +70,33 @@ def generate_summaries_or_translations(
         prefix = prefix or getattr(model.config, "prefix", "") or ""
     for examples_chunk in tqdm(list(chunks(examples, batch_size))):
         examples_chunk = [prefix + text for text in examples_chunk]
-        batch = tokenizer(examples_chunk, return_tensors="pt", truncation=True, padding="longest").to(device)
+        # sentences = []
+        # for text in examples_chunk:
+        #     sentence = flair.data.Sentence(text)
+        #     sentences.append(sentence)
+        # tagger.predict(sentences)
+        # examples_chunk = [sentence_to_tagged_string(s) for s in sentences]
+
+        batch = tokenizer(examples_chunk, return_tensors="pt", truncation=True, padding="longest", return_offsets_mapping=True).to(device)
+        input_ids = batch["input_ids"]
+        sentences = []
+        for input_id in input_ids:
+            sentence = flair.data.Sentence(tokenizer.decode(input_id.tolist(), skip_special_tokens=True))
+            sentences.append(sentence)
+        tagger.predict(sentences)
+
+        entity_ids = torch.zeros_like(input_ids, device=input_ids.device)
+        for entity_id, sentence, offsets, input_id in zip(entity_ids, sentences, batch["offset_mapping"], input_ids):
+            token_starts = [i[0] for i in offsets[1:-1].tolist()]
+            for entity in sentence.get_spans():
+                start, end = adapt_span(entity.start_pos, entity.end_pos, token_starts)
+                entity_id[start:end] = tagger.tag_dictionary.item2idx[("B-" + entity.tag).encode()]
+
         summaries = model.generate(
             input_ids=batch.input_ids,
             attention_mask=batch.attention_mask,
+            entity_ids=entity_ids,
+            # entity_ids=None,
             **generate_kwargs,
         )
         dec = tokenizer.batch_decode(summaries, skip_special_tokens=True, clean_up_tokenization_spaces=False)

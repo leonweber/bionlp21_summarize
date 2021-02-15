@@ -20,11 +20,11 @@ from seq2seq_training_args import Seq2SeqTrainingArguments
 import sys
 from dataclasses import dataclass, field
 from typing import Optional
+from modeling_bart import BartForConditionalGeneration
 
 import transformers
 from transformers import (
     AutoConfig,
-    AutoModelForSeq2SeqLM,
     AutoTokenizer,
     HfArgumentParser,
     MBartTokenizer,
@@ -45,6 +45,7 @@ from utils import (
     use_task_specific_params,
     write_txt_file,
 )
+import flair
 
 
 logger = logging.getLogger(__name__)
@@ -205,12 +206,17 @@ def main():
         model_args.tokenizer_name if model_args.tokenizer_name else model_args.model_name_or_path,
         cache_dir=model_args.cache_dir,
     )
-    model = AutoModelForSeq2SeqLM.from_pretrained(
+    # tagger = flair.models.SequenceTagger.load("taggers/chqa-clean/best-model.pt")
+    # tags = ["<" + i.replace("B-", "") + ">" for i in sorted(tagger.tag_dictionary.get_items()) if i.startswith("B-")]
+    # tags = ["</" + i.replace("B-", "") + ">" for i in sorted(tagger.tag_dictionary.get_items()) if i.startswith("B-")]
+    # tokenizer.add_tokens(tags)
+    model = BartForConditionalGeneration.from_pretrained(
         model_args.model_name_or_path,
         from_tf=".ckpt" in model_args.model_name_or_path,
         config=config,
         cache_dir=model_args.cache_dir,
     )
+    model.resize_token_embeddings(len(tokenizer))
 
     # use task specific params
     use_task_specific_params(model, data_args.task)

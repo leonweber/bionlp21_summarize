@@ -5,6 +5,7 @@ from sklearn.cluster import KMeans, AgglomerativeClustering
 from sklearn.metrics.pairwise import euclidean_distances
 from flair.models import SequenceTagger
 import seaborn as sns
+import numpy as np
 
 
 #%%
@@ -32,6 +33,13 @@ for sentence in tagged_corpus:
 blinded_corpus_embeddings = embedder.encode(corpus)
 
 
+
+
+#%%
+# Normalize the embeddings to unit length
+corpus_embeddings = corpus_embeddings /  np.linalg.norm(corpus_embeddings, axis=1, keepdims=True)
+blinded_corpus_embeddings = blinded_corpus_embeddings /  np.linalg.norm(blinded_corpus_embeddings, axis=1, keepdims=True)
+
 #%%
 dists = euclidean_distances(corpus_embeddings)
 sns.distplot(dists)
@@ -41,7 +49,7 @@ dists = euclidean_distances(blinded_corpus_embeddings)
 sns.distplot(dists)
 
 #%%
-clustering_model = AgglomerativeClustering(n_clusters=None, distance_threshold=20) #, affinity='cosine', linkage='average', distance_threshold=0.4)
+clustering_model = AgglomerativeClustering(n_clusters=None, distance_threshold=1.5) #, affinity='cosine', linkage='average', distance_threshold=0.4)
 clustering_model.fit(corpus_embeddings)
 cluster_assignment = clustering_model.labels_
 
@@ -60,7 +68,7 @@ with open("clusters.txt", "w") as f:
         f.write("\n\n")
 
 #%%
-clustering_model = AgglomerativeClustering(n_clusters=None, distance_threshold=20) #, affinity='cosine', linkage='average', distance_threshold=0.4)
+clustering_model = AgglomerativeClustering(n_clusters=None, distance_threshold=1.5) #, affinity='cosine', linkage='average', distance_threshold=0.4)
 clustering_model.fit(blinded_corpus_embeddings)
 cluster_assignment = clustering_model.labels_
 
