@@ -15,6 +15,7 @@
 
 import argparse
 import datetime
+from ensemble import EnsembleForConditionalGeneration
 import json
 import time
 import warnings
@@ -38,7 +39,7 @@ DEFAULT_DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 def generate_summaries_or_translations(
     examples: List[str],
     out_file: str,
-    model_name: str,
+    model_names: str,
     batch_size: int = 8,
     device: str = DEFAULT_DEVICE,
     fp16=False,
@@ -49,13 +50,10 @@ def generate_summaries_or_translations(
     """Save model.generate results to <out_file>, and return how long it took."""
     fout = Path(out_file).open("w", encoding="utf-8")
     fout_all = Path(out_file + ".all").open("w", encoding="utf-8")
-    model_name = str(model_name)
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_name).to(device)
+    model = EnsembleForConditionalGeneration(model_names, device)
+    tokenizer = AutoTokenizer.from_pretrained(model_names[0])
     if fp16:
         model = model.half()
-
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    logger.info(f"Inferred tokenizer type: {tokenizer.__class__}")  # if this is wrong, check config.model_type.
 
     start_time = time.time()
     # update config with task specific params
@@ -116,9 +114,9 @@ def run_generate(verbose=True):
     """
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("model_name", type=str, help="like facebook/bart-large-cnn,t5-base, etc.")
-    parser.add_argument("input_path", type=str, help="like cnn_dm/test.source")
-    parser.add_argument("save_path", type=str, help="where to save summaries")
+    parser.add_argument("--models", type=str, help="like facebook/bart-large-cnn,t5-base, etc.", nargs="+", required=True)
+    parser.add_argument("--input_path", type=str, help="like cnn_dm/test.source", required=True)
+    parser.add_argument("--save_path", type=str, help="where to save summaries", required=True)
     parser.add_argument("--reference_path", type=str, required=False, help="like cnn_dm/test.target")
     parser.add_argument("--score_path", type=str, required=False, default="metrics.json", help="where to save metrics")
     parser.add_argument("--device", type=str, required=False, default=DEFAULT_DEVICE, help="cuda, cuda:1, cpu etc.")
@@ -144,7 +142,7 @@ def run_generate(verbose=True):
     parsed_args = parse_numeric_n_bool_cl_kwargs(rest)
     if parsed_args and verbose:
         print(f"parsed the following generate kwargs: {parsed_args}")
-    examples = [" " + x.rstrip() if "t5" in args.model_name else x.rstrip() for x in open(args.input_path).readlines()]
+    examples = [x.rstrip() for x in open(args.input_path).readlines()]
     if args.n_obs > 0:
         examples = examples[: args.n_obs]
     Path(args.save_path).parent.mkdir(exist_ok=True)
@@ -153,7 +151,7 @@ def run_generate(verbose=True):
     runtime_metrics = generate_summaries_or_translations(
         examples,
         args.save_path,
-        args.model_name,
+        args.models,
         batch_size=args.bs,
         device=args.device,
         fp16=args.fp16,
