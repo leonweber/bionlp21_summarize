@@ -1,3 +1,4 @@
+from argparse import ArgumentParser
 from collections import defaultdict
 from math import sqrt
 from pathlib import Path
@@ -62,21 +63,38 @@ def select_best_prediction(gold_file: Path, multi_prediction_file: Path, output_
     }
     print(stats)
 
+
 if __name__ == "__main__":
+    parser = ArgumentParser()
+    parser.add_argument("--target_file", type=Path, required=True)
+    parser.add_argument("--candidate_file", type=Path, required=True)
+    parser.add_argument("--output_file", type=Path, required=True)
+
+    args = parser.parse_args()
+
+    select_best_prediction(
+        gold_file=args.target_file,
+        multi_prediction_file=args.candidate_file,
+        output_file=args.output_file
+    )
+
+    score = calculate_rouge_path(args.output_file, args.target_file)
+    print(score)
+
     # select_best_prediction(
     #     Path("data/splits_s17/fold_0/test.source"),
     #     Path("_test/prediction.txt.all"),
     #     Path("_test/prediction_best_source.txt"),
     # )
 
-    select_best_prediction(
-        Path("data/splits_s777/fold_0/test.target"),
-        Path("_test/prediction.txt.all"),
-        Path("_test/prediction_best_target.txt"),
-    )
-
-    score = calculate_rouge_path(Path("_test/prediction.txt"), Path("data/splits_s777/fold_0/test.target"))
-    print(score)
-
-    score = calculate_rouge_path(Path("_test/prediction_best_target.txt"), Path("data/splits_s777/fold_0/test.target"))
-    print(score)
+    # select_best_prediction(
+    #     Path("data/splits_s777/fold_0/test.target"),
+    #     Path("_test/prediction.txt.all"),
+    #     Path("_test/prediction_best_target.txt"),
+    # )
+    #
+    # score = calculate_rouge_path(Path("_test/prediction.txt"), Path("data/splits_s777/fold_0/test.target"))
+    # print(score)
+    #
+    # score = calculate_rouge_path(Path("_test/prediction_best_target.txt"), Path("data/splits_s777/fold_0/test.target"))
+    # print(score)

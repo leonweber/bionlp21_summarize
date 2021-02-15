@@ -9,7 +9,7 @@ from pathlib import Path
 from utils import calculate_rouge
 
 
-def read_examples(input_file: Path, type_func: Callable = float):
+def read_examples(input_file: Path, lower_case: bool = False, type_func: Callable = float):
     examples = []
 
     with input_file.open("r") as reader:
@@ -17,7 +17,10 @@ def read_examples(input_file: Path, type_func: Callable = float):
             id, source, target, label = line.split("\t")
             label = type_func(label)
 
-            examples.append(InputExample(guid=int(id), texts=[source, target], label=label))
+            if lower_case:
+                examples.append(InputExample(guid=int(id), texts=[source.lower(), target.lower()], label=label))
+            else:
+                examples.append(InputExample(guid=int(id), texts=[source, target], label=label))
 
     return examples
 

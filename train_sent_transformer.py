@@ -80,16 +80,26 @@ class RougeEvaluator(SentenceEvaluator):
         #FIXME: Think about - which metric to perform model selection (rougeL is used as evaluation for the tasks)?
         return score["rougeL"]
 
-def train_sentence_transformer(model_name: str, data_dir: Path, output_dir: Path,
-                               epochs: int, batch_size: int):
-    model = CrossEncoder(model_name, num_labels=1)
+def train_sentence_transformer(
+        model_name: str,
+        data_dir: Path,
+        output_dir: Path,
+        lower_case: bool,
+        epochs: int,
+        batch_size: int
+):
+    model = CrossEncoder(model_name, num_labels=1, max_length=512)
 
-    train_examples = read_examples(data_dir / "train.tsv")
+    train_examples = read_examples(data_dir / "train.tsv", lower_case)
     train_dataloader = DataLoader(train_examples, shuffle=True, batch_size=batch_size)
 
-    test_examples = read_examples(data_dir / "test.tsv")
+    test_examples = read_examples(data_dir / "test.tsv", lower_case)
     gold_targets_file = data_dir / "test.target"
-    gold_targets = [line.strip() for line in gold_targets_file.open("r").readlines()]
+
+    if lower_case:
+        gold_targets = [line.strip().lower() for line in gold_targets_file.open("r").readlines()]
+    else:
+        gold_targets = [line.strip() for line in gold_targets_file.open("r").readlines()]
 
     seq_evaluator = SequentialEvaluator(evaluators=[
         RougeEvaluator(test_examples, gold_targets)
@@ -113,6 +123,7 @@ if __name__ == "__main__":
     parser.add_argument("--output_dir", type=Path, required=True)
     parser.add_argument("--epochs", type=int, default=20, required=False)
     parser.add_argument("--bs", type=int, default=8, required=False)
+    parser.add_argument("--lower_case", default=False, required=False, action="store_true") #FIXME: default=False only for legacy runs!
 
     args = parser.parse_args()
 
@@ -120,6 +131,7 @@ if __name__ == "__main__":
         model_name=args.model,
         data_dir=args.data_dir,
         output_dir=args.output_dir,
+        lower_case=args.lower_case,
         epochs=args.epochs,
         batch_size=args.bs
     )
