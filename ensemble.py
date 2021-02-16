@@ -4,6 +4,7 @@ import torch
 from transformers.generation_utils import GenerationMixin
 from transformers.modeling_outputs import BaseModelOutput, Seq2SeqLMOutput, Seq2SeqModelOutput
 from transformers import AutoModelForSeq2SeqLM
+from copy import copy
 
 def shift_tokens_right(input_ids: torch.Tensor, pad_token_id: int, decoder_start_token_id: int):
     """
@@ -30,7 +31,10 @@ class EnsembleForConditionalGeneration(nn.Module, GenerationMixin):
 
     def forward(self, *args, **kwargs):
         output = Seq2SeqLMOutput()
-        logits = [model(*args, **kwargs)["logits"] for model in self.models][:1]
+        for i, model in enumerate(self.models):
+            kwargs_copy = copy(kwargs) 
+            kwargs_copy["encoder_outputs"]["last_hidden_state"][:, i, ...]
+            logits = [model(*args, **kwargs_copy)["logits"] for model in self.models][:1]
 
         output["logits"] = torch.mean(torch.stack(logits, dim=0), dim=0)
 
@@ -42,6 +46,30 @@ class EnsembleForConditionalGeneration(nn.Module, GenerationMixin):
 
     def get_encoder(self):
         return self.encoder
+
+    def prepare_inputs_for_generation(
+        self,
+        decoder_input_ids,
+        past=None,
+        attention_mask=None,
+        head_mask=None,
+        use_cache=None,
+        encoder_outputs=None,
+        **kwargs
+    ):
+        # cut decoder_input_ids if past is used
+        if past is not None:
+            decoder_input_ids = decoder_input_ids[:, -1:]
+
+        return {
+            "input_ids": None,  # encoder_outputs is defined. input_ids not needed
+            "encoder_outputs": encoder_outputs,
+            "past_key_values": past,
+            "decoder_input_ids": decoder_input_ids,
+            "attention_mask": attention_mask,
+            "head_mask": head_mask,
+            "use_cache": use_cache,  # change this to avoid caching (presumably for debugging)
+        }
 
 
 class EnsembleEncoder(nn.Module):
