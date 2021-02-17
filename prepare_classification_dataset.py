@@ -80,7 +80,8 @@ def generate_data_from_predictions(
         pred_dir: Path,
         output_dir: Path,
         sim_metric: str = "rougeL",
-        binary_score: bool = False
+        binary_score: bool = False,
+        pred_file_prefix: str = "fold"
 ):
     train_examples = []
     test_examples = []
@@ -89,7 +90,7 @@ def generate_data_from_predictions(
     global_id = 0
 
     for i in range(10):
-        prediction_file = pred_dir / f"fold_{i}.txt.all"
+        prediction_file = pred_dir / f"{pred_file_prefix}_{i}.txt.all"
         if not prediction_file.exists():
             print(f"Can't find {prediction_file}")
             continue
@@ -114,6 +115,9 @@ def generate_data_from_predictions(
             best_rouge = calculate_rouge([target], [target])[sim_metric]
 
             candidates = predictions[j]
+            if len(candidates) == 0:
+                print(f"Can't find candidates for {j}")
+
             scores = [calculate_rouge([c], [target])[sim_metric] for c in candidates]
             max_score = max(scores)
 
@@ -176,6 +180,7 @@ if __name__ == "__main__":
     from_pred_data_parser.add_argument("--output_dir", type=Path, required=True)
     from_pred_data_parser.add_argument("--sim_metric", type=str, default="rougeL", required=False)
     from_pred_data_parser.add_argument("--binary", type=bool, default=False, required=False)
+    from_pred_data_parser.add_argument("--pred_file_prefix", type=str, default="fold", required=False)
 
     from_test_data_parser = subparsers.add_parser("from_test_data")
     from_test_data_parser.add_argument("--source_file", type=Path, required=True)
@@ -198,7 +203,8 @@ if __name__ == "__main__":
             pred_dir=args.prediction_dir,
             output_dir=args.output_dir,
             sim_metric=args.sim_metric,
-            binary_score=args.binary
+            binary_score=args.binary,
+            pred_file_prefix=args.pred_file_prefix
         )
 
     elif args.action == "from_test_data":

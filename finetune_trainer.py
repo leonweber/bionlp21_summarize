@@ -182,6 +182,7 @@ def main():
     logger.info("Training/evaluation parameters %s", training_args)
 
     # Set seed
+    print(f"\n\n\nSetting seed to {training_args.seed}\n\n\n")
     set_seed(training_args.seed)
 
     # Load pretrained model and tokenizer

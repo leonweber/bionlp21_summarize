@@ -73,11 +73,16 @@ def evaluate(
     return score, best_targets
 
 
-def evaluate_sent_transformer(model: Union[str, CrossEncoder], data_dir: Path, batch_size: int):
+def evaluate_sent_transformer(
+        model: Union[str, CrossEncoder],
+        data_dir: Path,
+        batch_size: int,
+        lower_case: bool
+):
     if type(model) == str:
         model = CrossEncoder(model)
 
-    examples = read_examples(data_dir / "test.tsv")
+    examples = read_examples(data_dir / "test.tsv", lower_case)
     gold_targets = [line.strip() for line in (data_dir / "test.target").open("r").readlines()]
 
     eval_result, _ = evaluate(
@@ -95,11 +100,13 @@ if __name__ == "__main__":
     parser.add_argument("--model", type=str, required=True)
     parser.add_argument("--data_dir", type=Path, required=True)
     parser.add_argument("--bs", type=int, default=8, required=False)
+    parser.add_argument("--cased", type=bool, default=False, required=False)
 
     args = parser.parse_args()
 
     evaluate_sent_transformer(
         model=args.model,
         data_dir=args.data_dir,
-        batch_size=args.bs
+        batch_size=args.bs,
+        lower_case=not args.cased
     )

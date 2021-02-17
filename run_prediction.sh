@@ -15,4 +15,4 @@ echo "Aggregating data for classification model"
 python prepare_classification_dataset.py from_test_data --source_file $INPUT_FILE --prediction_file $GEN_PRED_FILE.all --output_file $CL_INPUT_FILE
 
 echo "Running classification model prediction"
-python predict_sent_transformer.py --model $CL_MODEL --input_file $CL_INPUT_FILE --output_file $OUTPUT_DIR/prediction.txt --lower_case
+python predict_sent_transformer.py --model $CL_MODEL --input_file $CL_INPUT_FILE --output_file $OUTPUT_DIR/prediction.txt

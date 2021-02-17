@@ -123,7 +123,7 @@ if __name__ == "__main__":
     parser.add_argument("--output_dir", type=Path, required=True)
     parser.add_argument("--epochs", type=int, default=20, required=False)
     parser.add_argument("--bs", type=int, default=8, required=False)
-    parser.add_argument("--lower_case", default=False, required=False, action="store_true") #FIXME: default=False only for legacy runs!
+    parser.add_argument("--cased", default=False, required=False, action="store_true")
 
     args = parser.parse_args()
 
@@ -131,7 +131,7 @@ if __name__ == "__main__":
         model_name=args.model,
         data_dir=args.data_dir,
         output_dir=args.output_dir,
-        lower_case=args.lower_case,
+        lower_case=not args.cased,
         epochs=args.epochs,
         batch_size=args.bs
     )
