@@ -4,7 +4,7 @@ import torch
 from transformers.generation_utils import GenerationMixin
 from transformers.modeling_outputs import BaseModelOutput, Seq2SeqLMOutput, Seq2SeqModelOutput
 from transformers import AutoModelForSeq2SeqLM
-from copy import copy
+from copy import deepcopy
 
 def shift_tokens_right(input_ids: torch.Tensor, pad_token_id: int, decoder_start_token_id: int):
     """
@@ -32,8 +32,8 @@ class EnsembleForConditionalGeneration(nn.Module, GenerationMixin):
     def forward(self, *args, **kwargs):
         output = Seq2SeqLMOutput()
         for i, model in enumerate(self.models):
-            kwargs_copy = copy(kwargs) 
-            kwargs_copy["encoder_outputs"]["last_hidden_state"][:, i, ...]
+            kwargs_copy = deepcopy(kwargs) 
+            kwargs_copy["encoder_outputs"]["last_hidden_state"] = kwargs["encoder_outputs"]["last_hidden_state"][:, i, ...]
             logits = [model(*args, **kwargs_copy)["logits"] for model in self.models][:1]
 
         output["logits"] = torch.mean(torch.stack(logits, dim=0), dim=0)
