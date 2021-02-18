@@ -61,7 +61,7 @@ def evaluate(
 
         if best_gold_scores is not None:
             score = example.label
-            if score == best_gold_scores[id]:
+            if score == best_gold_scores[id] and best_gold_scores[id] > 0:
                 num_best_target += 1
 
     score = calculate_rouge(best_targets, gold_targets)

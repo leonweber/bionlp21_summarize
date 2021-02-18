@@ -1,4 +1,5 @@
 import argparse
+import math
 import random
 import shutil
 
@@ -125,7 +126,8 @@ def generate_data_from_predictions(
                 if binary_score:
                     score = 1.0 if score == max_score else 0.0
                 else:
-                    score = score / best_rouge
+                    #score = score / best_rouge
+                    score = score / max_score
 
                 examples.append(InputExample(guid=str(global_id), texts=[source, candidate], label=score))
 
@@ -164,6 +166,53 @@ def generate_data_from_test_prediction(source_file: Path, prediction_file: Path,
     writer.close()
 
 
+def generate_data_from_val_prediction(
+        source_file: Path,
+        target_file: Path,
+        all_prediction_file: Path,
+        output_file: Path,
+        binary_score: bool = False
+):
+
+    predictions = defaultdict(list)
+    for line in all_prediction_file.open("r"):
+        parts = line.strip().split("\t")
+        predictions[int(parts[0])] += [parts[1].strip()]
+
+    test_sources = [line.strip() for line in source_file.open("r").readlines()]
+    test_targets = [line.strip() for line in target_file.open("r").readlines()]
+
+    print(f"Building examples from {all_prediction_file}")
+
+    examples = []
+    global_id = 0
+    for j, (source, target) in tqdm(enumerate(zip(test_sources, test_targets)), total=len(test_targets)):
+        # FIXME: Should we also add the gold standard target to the data set???
+        # examples.append(InputExample(guid=str(global_id), texts=[source, target], label=1.0))
+        best_rouge = calculate_rouge([target], [target])["rougeL"]
+
+        candidates = predictions[j]
+        if len(candidates) == 0:
+            print(f"Can't find candidates for {j}")
+
+        scores = [calculate_rouge([c], [target])["rougeL"] for c in candidates]
+        max_score = max(scores)
+
+        for candidate, score in zip(candidates, scores):
+            if binary_score:
+                score = 1.0 if score == max_score else 0.0
+            else:
+                # score = score / best_rouge
+                if score > 0:
+                    score = score / max_score
+
+            examples.append(InputExample(guid=str(global_id), texts=[source, candidate], label=score))
+
+        global_id += 1
+
+    save_examples(examples, output_file)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="action")
@@ -184,6 +233,12 @@ if __name__ == "__main__":
 
     from_test_data_parser = subparsers.add_parser("from_test_data")
     from_test_data_parser.add_argument("--source_file", type=Path, required=True)
+    from_test_data_parser.add_argument("--prediction_file", type=Path, required=True)
+    from_test_data_parser.add_argument("--output_file", type=Path, required=True)
+
+    from_test_data_parser = subparsers.add_parser("from_val_data")
+    from_test_data_parser.add_argument("--source_file", type=Path, required=True)
+    from_test_data_parser.add_argument("--target_file", type=Path, required=True)
     from_test_data_parser.add_argument("--prediction_file", type=Path, required=True)
     from_test_data_parser.add_argument("--output_file", type=Path, required=True)
 
@@ -211,5 +266,13 @@ if __name__ == "__main__":
         generate_data_from_test_prediction(
             source_file=args.source_file,
             prediction_file=args.prediction_file,
+            output_file=args.output_file
+        )
+
+    elif args.action == "from_val_data":
+        generate_data_from_val_prediction(
+            source_file=args.source_file,
+            target_file=args.target_file,
+            all_prediction_file=args.prediction_file,
             output_file=args.output_file
         )
