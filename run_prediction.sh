@@ -16,3 +16,10 @@ python prepare_classification_dataset.py from_test_data --source_file $INPUT_FIL
 
 echo "Running classification model prediction"
 python predict_sent_transformer.py --model $CL_MODEL --input_file $CL_INPUT_FILE --output_file $OUTPUT_DIR/prediction.txt
+
+echo Vanilla
+python rouge_cli.py $GEN_PRED_FILE data/task/val.target
+
+echo
+echo Selected
+python rouge_cli.py $OUTPUT_DIR/prediction.txt data/task/val.target

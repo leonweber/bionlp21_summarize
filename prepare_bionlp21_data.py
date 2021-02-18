@@ -109,20 +109,22 @@ def generate_and_save_splits(data: DataFrame, seed: int, output_dir: Path):
 if __name__ == "__main__":
     # Read and convert training data
 
-    # data = read_and_clean_data(
-    #     input_file=Path("data/MeQSum_ACL2019_BenAbacha_Demner-Fushman.csv"),
-    #     column_mapping={"CHQ": "source", "Summary": "target"},
-    #     min_threshold=10
-    # )
-    # print_stats(data)
-    # #save_dataset(data, Path("data/50_50"))
-    # generate_and_save_splits(data, 17, Path("data/splits_s17"))
-
-    val_data = read_and_clean_data(
-        input_file=Path("data/MEDIQA2021-Task1-QuestionSummarization-ValidationSet.csv"),
-        column_mapping={"NLM Question": "source", "Summary": "target"},
+    data = read_and_clean_data(
+        input_file=Path("data/MeQSum_ACL2019_BenAbacha_Demner-Fushman.csv"),
+        column_mapping={"CHQ": "source", "Summary": "target"},
         min_threshold=10
     )
-    save_texts(val_data, Path("data/task_val"), "task_val")
+    print_stats(data)
+    save_texts(data, Path("data/task/"), "train")
+
+    #save_dataset(data, Path("data/50_50"))
+    #generate_and_save_splits(data, 17, Path("data/splits_s17"))
+
+    # val_data = read_and_clean_data(
+    #     input_file=Path("data/MEDIQA2021-Task1-QuestionSummarization-ValidationSet.csv"),
+    #     column_mapping={"NLM Question": "source", "Summary": "target"},
+    #     min_threshold=10
+    # )
+    # save_texts(val_data, Path("data/task_val"), "task_val")
 
 
