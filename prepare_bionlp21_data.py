@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Tuple, List
 
 import pandas as pd
 import numpy as np
@@ -106,16 +106,68 @@ def generate_and_save_splits(data: DataFrame, seed: int, output_dir: Path):
         save_texts(test_data, fold_output_dir, "test")
 
 
+def read_task_data(label: str, source_file: Path, target_file: Path):
+    source_lines = [line.strip() for line in source_file.open("r", encoding="utf8").readlines()]
+    target_lines = [line.strip() for line in target_file.open("r", encoding="utf8").readlines()]
+
+    return [(source, target, label) for source, target, label in zip(source_lines, target_lines, [label] * len(source_lines))]
+
+
+def save_task_data_split(data: List[Tuple[str, str, str]], output_dir: Path, name: str, target_label: str = None):
+    source_writer = (output_dir / f"{name}.source").open("w", encoding="utf8")
+    target_writer = (output_dir / f"{name}.target").open("w", encoding="utf8")
+
+    for source, target, label in data:
+        if target_label is None or target_label == label:
+            source_writer.write(source + "\n")
+            target_writer.write(target + "\n")
+
+    source_writer.close()
+    target_writer.close()
+
+
+def build_two_stage_data(gen_train_size: int, disc_train_size: int, output_dir: Path):
+    train_data = read_task_data("dev", Path("data/task/train.source"), Path("data/task/train.target"))
+    val_data = read_task_data("val", Path("data/task/val.source"), Path("data/task/val.target"))
+
+    all_data = train_data + val_data
+    all_data_labels = [label for _, _, label in all_data]
+
+    gen_train, other = train_test_split(all_data, train_size=gen_train_size, stratify=all_data_labels)
+
+    other_labels = [label for _, _, label in other]
+    disc_train, test_data = train_test_split(other, train_size=disc_train_size, stratify=other_labels)
+
+    gen_data_dir = output_dir / "gen_data"
+    gen_data_dir.mkdir(parents=True, exist_ok=True)
+    save_task_data_split(gen_train, gen_data_dir, "train")
+    save_task_data_split(gen_train, gen_data_dir, "train_dev", "dev")
+    save_task_data_split(gen_train, gen_data_dir, "train_val", "val")
+
+    disc_data_dir = output_dir / "disc_data"
+    disc_data_dir.mkdir(parents=True, exist_ok=True)
+    save_task_data_split(disc_train, disc_data_dir, "train")
+    save_task_data_split(disc_train, disc_data_dir, "train_dev", "dev")
+    save_task_data_split(disc_train, disc_data_dir, "train_val", "val")
+
+    test_data_dir = output_dir / "test"
+    test_data_dir.mkdir(parents=True, exist_ok=True)
+    save_task_data_split(test_data, test_data_dir, "test")
+    save_task_data_split(test_data, test_data_dir, "test_dev", "dev")
+    save_task_data_split(test_data, test_data_dir, "test_val", "val")
+
+
 if __name__ == "__main__":
     # Read and convert training data
+    build_two_stage_data(600, 250, Path("data/combined1"))
 
-    data = read_and_clean_data(
-        input_file=Path("data/MeQSum_ACL2019_BenAbacha_Demner-Fushman.csv"),
-        column_mapping={"CHQ": "source", "Summary": "target"},
-        min_threshold=10
-    )
-    print_stats(data)
-    save_texts(data, Path("data/task/"), "train")
+    # data = read_and_clean_data(
+    #     input_file=Path("data/MeQSum_ACL2019_BenAbacha_Demner-Fushman.csv"),
+    #     column_mapping={"CHQ": "source", "Summary": "target"},
+    #     min_threshold=10
+    # )
+    # print_stats(data)
+    # save_texts(data, Path("data/task/"), "train")
 
     #save_dataset(data, Path("data/50_50"))
     #generate_and_save_splits(data, 17, Path("data/splits_s17"))
