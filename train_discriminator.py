@@ -143,6 +143,7 @@ def train_discriminator(
         # val_gold_target_file: Path,
         output_dir: Path,
         loss: str,
+        margin: float,
         epochs: int,
         batch_size: int
 ):
@@ -151,16 +152,16 @@ def train_discriminator(
 
     convert_examples = True
     if loss == "triplet":
-        train_loss = TripletLoss(model=model)
+        train_loss = TripletLoss(model=model, triplet_margin=margin)
         convert_examples = False
     elif loss == "all":
-        train_loss = BatchAllTripletLoss(model=model)
+        train_loss = BatchAllTripletLoss(model=model, margin=margin)
     elif loss == "hard":
-        train_loss = BatchHardTripletLoss(model=model)
+        train_loss = BatchHardTripletLoss(model=model, margin=margin)
     elif loss == "hard_sm":
         train_loss = BatchHardSoftMarginTripletLoss(model=model)
     elif loss == "semi":
-        train_loss = BatchSemiHardTripletLoss(model=model)
+        train_loss = BatchSemiHardTripletLoss(model=model, margin=margin)
     else:
         raise AssertionError(f"Unknown loss {loss}")
 
@@ -215,8 +216,10 @@ if __name__ == "__main__":
     parser.add_argument("--output_dir", type=Path, required=True)
 
     parser.add_argument("--loss", type=str, default="all", required=False)
+    parser.add_argument("--margin", type=float, default=5.0, required=False)
     parser.add_argument("--batch_size", type=int, default=8, required=False)
     parser.add_argument("--epochs", type=int, default=50, required=False)
+
     args = parser.parse_args()
 
     train_discriminator(
@@ -224,6 +227,7 @@ if __name__ == "__main__":
         train_file=args.train_file,
         output_dir=args.output_dir,
         loss=args.loss,
+        margin=args.margin,
         epochs=args.epochs,
         batch_size=args.batch_size
     )
