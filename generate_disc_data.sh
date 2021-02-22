@@ -50,6 +50,7 @@ TRIPLES_FILE=$SIM_DATA_DIR/train_triples.tsv
 
 if [ ! -f $TRIPLES_FILE ];
 then
+  echo "Preparing triples for discriminator training examples"
   python prepare_triplet_data.py \
     --source_file $DISC_TRAIN_SOURCE_FILE \
     --target_file $DISC_TRAIN_TARGET_FILE \
@@ -112,6 +113,7 @@ TRIPLES_FILE=$SIM_DATA_DIR/test_triples.tsv
 
 if [ ! -f $TRIPLES_FILE ];
 then
+  echo "Preparing triples for test examples"
   python prepare_triplet_data.py \
     --source_file $TEST_SOURCE_FILE \
     --target_file $TEST_TARGET_FILE \
@@ -176,6 +178,8 @@ TRIPLES_FILE=$SIM_DATA_DIR/train_triples.tsv
 
 if [ ! -f $TRIPLES_FILE ];
 then
+
+  echo "Preparing triples for generator training examples"
   python prepare_triplet_data.py \
     --source_file $GEN_TRAIN_SOURCE_FILE \
     --target_file $GEN_TRAIN_TARGET_FILE \
@@ -184,5 +188,35 @@ then
 else
   echo "Triples file $TRIPLES_FILE already exists"
 fi
-
 echo
+
+################################################################################
+################################################################################
+###
+### Prepare gen data split
+
+COMBINED_DIR=$MODEL_DIR/sim_data_combi
+if [[ $OVERWRITE == 1 ]]
+then
+  echo "Deleting directory COMBINED_DIR"
+  rm -rf $COMBINED_DIR
+fi
+
+mkdir -p $COMBINED_DIR
+
+COMBI_FILE=$COMBINED_DIR/train_triples.tsv
+
+TRIPLET_FILE1=$MODEL_DIR/sim_data_gen_train/train_triples.tsv
+TRIPLET_FILE2=$MODEL_DIR/sim_data_disc_train/train_triples.tsv
+
+if [ ! -f $COMBI_FILE ];
+then
+  echo "Combining training files"
+  python combine_classification_data.py \
+    --file1 $TRIPLET_FILE1 \
+    --file2 $TRIPLET_FILE2 \
+    --output_file $COMBI_FILE
+
+else
+  echo "Combination file $COMBI already exists!"
+fi
