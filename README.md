@@ -6,6 +6,44 @@ WANDB_PROJECT=bionlp21 CUDA_VISIBLE_DEVICES=0,1 python finetune_trainer.py --mod
  CUDA_VISIBLE_DEVICES=0,1 python run_eval.py test_run/pytorch_model.bin data/val.source predictions.txt
 
 ------
+## Two stage model (new)
+### Train generator model
+```
+WANDB_PROJECT=bionlp21 CUDA_VISIBLE_DEVICES=0,1 python finetune_trainer.py --model_name facebook/bart-base --data_dir data/combined1 --output_dir output/two_stage_1/gen_model1 --do_train --fp16 --do_eval --evaluation_strategy epoch --predict_with_generate --overwrite_output_dir --num_train_epochs 10 --seed 1
+```
+
+### Generate triples for all splis (i.e. disc_data, gen_data, test)
+```
+./generate_disc_data.sh output/two_stage_1/gen_model_1 data/combined1 
+```
+To overwrite existing triples add "1" as additional parameter
+```
+./generate_disc_data.sh output/two_stage_1/gen_model_1 data/combined1 1 
+```
+
+### Train a discriminator model
+... on disc train split
+```
+CUDA_VISIBLE_DEVICES=1 python train_discriminator.py --model bert-base-uncased --train_file output/two_stage_1/gen_model1/sim_data_disc_train/train_triples.tsv --output_dir output/two_stage_1/gen_model1/model_test1/ --epochs 100 --batch_size 32 --loss triplet --margin 25
+```
+
+... on combined gen train and disc tran split
+```
+CUDA_VISIBLE_DEVICES=1 python train_discriminator.py --model bert-base-uncased --train_file output/two_stage_1/gen_model1/sim_data_combi/train_triples.tsv --output_dir output/two_stage_1/gen_model1/model_test1/ --epochs 100 --batch_size 32 --loss triplet --margin 25
+```
+
+### Test models
+Generator:
+```
+./run_test_gen_model.sh output/two_stage_1/gen_model1
+```
+
+Discriminator:
+```
+./run_test_disc_model.sh output/two_stage_1/gen_model1 output/two_stage_1/ output/two_stage_1/gen_model1/model_test1/
+```
+
+----
 ## Two stage model
 
 ### Run 10-fold cross validation 
