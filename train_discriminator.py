@@ -97,11 +97,14 @@ class TripletRougeEvaluator(SentenceEvaluator):
             pred_writer.close()
 
 
-def read_triples(input_file: Path) -> List[InputExample]:
+def read_triples(input_file: Path, lower_case: bool = True) -> List[InputExample]:
     triples = []
     for line in input_file.open("r", encoding="utf8"):
         id, anchor, pos, neg = line.strip().split("\t")
         id = int(id)
+        if lower_case:
+            anchor, pos, neg = anchor.lower(), pos.lower(), neg.lower()
+
         triples.append(InputExample(guid=id, texts=[anchor, pos, neg]))
 
     return triples
@@ -145,9 +148,10 @@ def train_discriminator(
         loss: str,
         margin: float,
         epochs: int,
-        batch_size: int
+        batch_size: int,
+        lower_case: bool
 ):
-    triples = read_triples(train_file)
+    triples = read_triples(train_file, lower_case)
     model = SentenceTransformer(model)
 
     convert_examples = True
@@ -218,7 +222,8 @@ if __name__ == "__main__":
     parser.add_argument("--loss", type=str, default="all", required=False)
     parser.add_argument("--margin", type=float, default=5.0, required=False)
     parser.add_argument("--batch_size", type=int, default=8, required=False)
-    parser.add_argument("--epochs", type=int, default=50, required=False)
+    parser.add_argument("--epochs", type=int, default=10, required=False)
+    parser.add_argument("--cased", type=bool, default=False, required=False)
 
     args = parser.parse_args()
 
@@ -229,5 +234,6 @@ if __name__ == "__main__":
         loss=args.loss,
         margin=args.margin,
         epochs=args.epochs,
-        batch_size=args.batch_size
+        batch_size=args.batch_size,
+        lower_case=not args.cased
     )
