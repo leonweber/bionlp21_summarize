@@ -8,6 +8,7 @@ from sentence_transformers.datasets import SentenceLabelDataset
 from sentence_transformers.evaluation import TripletEvaluator, SentenceEvaluator
 from sentence_transformers.losses import BatchAllTripletLoss, TripletLoss, BatchHardTripletLoss, \
     BatchHardSoftMarginTripletLoss, BatchSemiHardTripletLoss
+from sentence_transformers.models import Pooling, Transformer
 from sklearn.metrics.pairwise import paired_cosine_distances, paired_manhattan_distances, paired_euclidean_distances
 from torch.utils.data import DataLoader
 
@@ -149,10 +150,20 @@ def train_discriminator(
         margin: float,
         epochs: int,
         batch_size: int,
-        lower_case: bool
+        lower_case: bool,
+        pooling: str,
 ):
     triples = read_triples(train_file, lower_case)
-    model = SentenceTransformer(model)
+    if pooling == "mean":
+        model = SentenceTransformer(model)
+    elif pooling == "cls":
+        transformer_model = Transformer(model)
+        pooling = Pooling(
+            word_embedding_dimension=transformer_model.get_word_embedding_dimension(),
+            pooling_mode_cls_token=True,
+            pooling_mode_mean_tokens=False
+        )
+        model = SentenceTransformer(modules=[transformer_model, pooling])
 
     convert_examples = True
     if loss == "triplet":
@@ -224,6 +235,7 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=8, required=False)
     parser.add_argument("--epochs", type=int, default=10, required=False)
     parser.add_argument("--cased", type=bool, default=False, required=False)
+    parser.add_argument("--pooling", type=str, default="mean", required=False)
 
     args = parser.parse_args()
 
@@ -235,5 +247,6 @@ if __name__ == "__main__":
         margin=args.margin,
         epochs=args.epochs,
         batch_size=args.batch_size,
-        lower_case=not args.cased
+        lower_case=not args.cased,
+        pooling=args.pooling
     )

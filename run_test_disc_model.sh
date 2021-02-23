@@ -2,6 +2,10 @@
 
 GEN_MODEL=$1
 DISC_MODEL=$2
+CASED="${3:-False}"
+
+echo "CASED is $CASED"
+
 
 echo "Run prediction on gen data"
 GEN_TRAIN_PRED_DIR=$DISC_MODEL/gen_data
@@ -12,7 +16,8 @@ CUDA_VISIBLE_DEVICES=0 python run_eval_discriminator.py \
   --input_file $GEN_MODEL/sim_data_gen_train/train.tsv \
   --gold_target_file data/combined1/gen_data/train.target \
   --output_dir $GEN_TRAIN_PRED_DIR \
-  --batch_size 16
+  --batch_size 16 \
+  --cased $CASED
 
 ###############################################
 
@@ -25,7 +30,8 @@ CUDA_VISIBLE_DEVICES=0 python run_eval_discriminator.py \
   --input_file $GEN_MODEL/sim_data_disc_train/train.tsv \
   --gold_target_file data/combined1/disc_data/train.target \
   --output_dir $DISC_TRAIN_PRED_DIR \
-  --batch_size 16
+  --batch_size 16 \
+  --cased $CASED
 
 ###############################################
 
@@ -38,7 +44,8 @@ CUDA_VISIBLE_DEVICES=0 python run_eval_discriminator.py \
   --input_file $GEN_MODEL/sim_data_test/test.tsv \
   --gold_target_file data/combined1/test/test.target \
   --output_dir $TEST_PRED_DIR \
-  --batch_size 16
+  --batch_size 16 \
+  --cased $CASED
 
 
 echo "Results cosine distance:"

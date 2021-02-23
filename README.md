@@ -9,7 +9,7 @@ WANDB_PROJECT=bionlp21 CUDA_VISIBLE_DEVICES=0,1 python finetune_trainer.py --mod
 ## Two stage model (new)
 ### Train generator model
 ```
-WANDB_PROJECT=bionlp21 CUDA_VISIBLE_DEVICES=0,1 python finetune_trainer.py --model_name facebook/bart-base --data_dir data/combined1 --output_dir output/two_stage_1/gen_model1 --do_train --fp16 --do_eval --evaluation_strategy epoch --predict_with_generate --overwrite_output_dir --num_train_epochs 10 --seed 1
+WANDB_PROJECT=bionlp21 CUDA_VISIBLE_DEVICES=0,1 python finetune_trainer.py --model_name facebook/bart-base --data_dir data/combined1/gen_data --output_dir output/two_stage_1/gen_model1 --do_train --fp16 --predict_with_generate --overwrite_output_dir --num_train_epochs 10 --seed 1
 ```
 
 ### Generate triples for all splis (i.e. disc_data, gen_data, test)
