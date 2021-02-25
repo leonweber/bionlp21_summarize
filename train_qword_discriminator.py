@@ -197,7 +197,7 @@ def train(
         example = InputExample(guid=i, texts=[source], label=label_id)
         examples.append(example)
 
-    if pooling == "mean":
+    if pooling == "mean" or pooling == "cls_st":
         model = SentenceTransformer(model)
     elif pooling == "cls":
         transformer_model = Transformer(model)
