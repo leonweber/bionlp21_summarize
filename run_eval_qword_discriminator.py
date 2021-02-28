@@ -34,17 +34,15 @@ def eval_discriminator(
     model.to("cuda:0")
     softmax_model.to("cuda:0")
 
-    print(softmax_model.model.device)
-    print(model.device)
-
     source_lines = [line.strip() for line in source_file.open("r", encoding="utf8").readlines()]
+    if lower_case:
+        source_lines = [line.lower() for line in source_lines]
 
     gold_targets = [line.strip() for line in target_file.open("r", encoding="utf8").readlines()]
     target_labels = [target.split()[0].lower() for target in gold_targets]
     target_labels = [label if not label.endswith(",") else label[:-1] for label in target_labels]
     target_labels = label_encoder.transform(target_labels)
 
-    print("Run embedding of source lines")
     source_embeddings = model.encode(
         sentences=source_lines,
         batch_size=batch_size,
@@ -85,6 +83,12 @@ def eval_discriminator(
 
         prediction_targets.append(selected_candidate)
         prediction_first.append(id_candidates[0])
+
+    qword_file = output_file.parent / (str(output_file.name) + ".qwords")
+    qword_writer = qword_file.open("w", encoding="utf8")
+    for label in prediction_labels:
+        qword_writer.write(label + "\n")
+    qword_writer.close()
 
     prediction_writer = output_file.open("w", encoding="utf8")
     for target in prediction_targets:
