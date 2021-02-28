@@ -1,61 +1,52 @@
-import pickle
-import torch
+import numpy as np
 
 from argparse import ArgumentParser
 from collections import defaultdict
 from pathlib import Path
-
 from pytorch_lightning import seed_everything
-from sentence_transformers import SentenceTransformer
 from sklearn.metrics import accuracy_score, f1_score
-from torch.nn.functional import sigmoid, softmax
+from typing import List
 
-from train_qword_discriminator import MySoftmaxLoss
+from train_qword_discriminator import get_label_encoder
 from utils import calculate_rouge
 
 
-def eval_discriminator(
-        model_dir: Path,
-        source_file: Path,
+def build_mean_predictions(logit_files: List[Path]):
+    id_to_logits = defaultdict(list)
+
+    for logit_file in logit_files:
+        reader = logit_file.open("r")
+        for i, line in enumerate(reader.readlines()):
+            logits = np.array([float(value) for value in line.strip().split()])
+            id_to_logits[i] += [logits]
+        reader.close()
+
+    mean_predictions = []
+    for id in sorted(id_to_logits.keys()):
+        logits = np.array(id_to_logits[id])
+        logits = np.mean(logits, axis=0)
+
+        mean_predictions += [logits]
+
+    return np.array(mean_predictions)
+
+
+def eval_discriminator_ensemble(
+        logit_files: List[Path],
         target_file: Path,
         candidate_file: Path,
-        output_file: Path,
-        batch_size: int,
-        lower_case: bool = False
+        output_file: Path
 ):
-    model = SentenceTransformer(str(model_dir))
+    label_encoder = get_label_encoder()
 
-    encoder_file = model_dir / "label_encoder.pkl"
-    label_encoder = pickle.load(encoder_file.open("rb"))
-
-    softmax_model = MySoftmaxLoss(model, model.get_sentence_embedding_dimension(), label_encoder.classes_.size)
-    softmax_model.load_state_dict(torch.load(model_dir / "softmax_model.bin"))
-    model = softmax_model.model
-
-    model.to("cuda:0")
-    softmax_model.to("cuda:0")
-
-    source_lines = [line.strip() for line in source_file.open("r", encoding="utf8").readlines()]
-    if lower_case:
-        source_lines = [line.lower() for line in source_lines]
+    mean_prediction = build_mean_predictions(logit_files)
+    prediction = np.argmax(mean_prediction, axis=1)
+    prediction_labels = label_encoder.inverse_transform(prediction)
 
     gold_targets = [line.strip() for line in target_file.open("r", encoding="utf8").readlines()]
     target_labels = [target.split()[0].lower() for target in gold_targets]
     target_labels = [label if not label.endswith(",") else label[:-1] for label in target_labels]
     target_labels = label_encoder.transform(target_labels)
-
-    source_embeddings = model.encode(
-        sentences=source_lines,
-        batch_size=batch_size,
-        show_progress_bar=True,
-        convert_to_numpy=True
-    )
-
-    with torch.no_grad():
-        _, prediction_probs = softmax_model(torch.tensor(source_embeddings, device=model.device), labels=None)
-
-        prediction = torch.argmax(prediction_probs.cpu(), dim=1)
-        prediction_labels = label_encoder.inverse_transform(prediction)
 
     accuracy = accuracy_score(target_labels, prediction)
     f1_macro = f1_score(target_labels, prediction, average="macro")
@@ -96,19 +87,6 @@ def eval_discriminator(
         prediction_writer.write(target + "\n")
     prediction_writer.close()
 
-    prob_file = output_file.parent / (str(output_file.name) + ".prob")
-    prob_writer = prob_file.open("w", encoding="utf8")
-    for probs in prediction_probs:
-        values = [str(value.item()) for value in softmax(probs)]
-        prob_writer.write("\t".join(values) + "\n")
-    prob_writer.close()
-
-    prob_file = output_file.parent / (str(output_file.name) + ".logits")
-    prob_writer = prob_file.open("w", encoding="utf8")
-    for probs in prediction_probs:
-        values = [str(value.item()) for value in probs]
-        prob_writer.write("\t".join(values) + "\n")
-    prob_writer.close()
 
     #seed_everything(42)
     #print("Vanilla")
@@ -125,22 +103,16 @@ def eval_discriminator(
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("--model", type=Path, required=True)
-    parser.add_argument("--source_file", type=Path, required=True)
+    parser.add_argument("--logit_files", type=Path, nargs="+", required=True)
     parser.add_argument("--target_file", type=Path, required=True)
     parser.add_argument("--candidate_file", type=Path, required=True)
     parser.add_argument("--output_file", type=Path, required=True)
 
-    parser.add_argument("--batch_size", type=int, default=8, required=False)
-    parser.add_argument("--cased", type=bool, default=False, required=False)
     args = parser.parse_args()
 
-    eval_discriminator(
-        model_dir=args.model,
-        source_file=args.source_file,
+    eval_discriminator_ensemble(
+        logit_files=args.logit_files,
         target_file=args.target_file,
         candidate_file=args.candidate_file,
         output_file=args.output_file,
-        batch_size=args.batch_size,
-        lower_case=not args.cased
     )
