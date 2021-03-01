@@ -1,7 +1,9 @@
 import pickle
+from collections import defaultdict
 from typing import Iterable, Dict, List
 
 import torch
+from pytorch_lightning import seed_everything
 from sentence_transformers.evaluation import SentenceEvaluator
 from sklearn.metrics import accuracy_score, classification_report, f1_score
 from torch import nn, Tensor
@@ -163,6 +165,22 @@ def get_label_encoder():
     encoder.fit(qwords)
     return encoder
 
+def oversample_minor_classes(examples: List[InputExample], threshold: float, rate: int):
+    qword_to_examples = defaultdict(list)
+
+    for example in examples:
+        qword_to_examples[example.label] += [example]
+
+    all_examples = []
+    for id, instances in qword_to_examples.items():
+        all_examples += instances
+
+        ratio = len(instances) / len(examples)
+        if ratio < threshold:
+            all_examples += instances * (rate -1)
+
+    return all_examples
+
 
 def train(
         model: str,
@@ -172,7 +190,9 @@ def train(
         pooling: str,
         epochs: int,
         batch_size: int,
-        lower_case: bool
+        lower_case: bool,
+        os_rate: int,
+        os_threshold: float
 ):
     source_lines = [line.strip() for line in source_file.open("r", encoding="utf8").readlines()]
     if lower_case:
@@ -197,7 +217,10 @@ def train(
         example = InputExample(guid=i, texts=[source], label=label_id)
         examples.append(example)
 
-    if pooling == "mean":
+    if os_rate is not None:
+        examples = oversample_minor_classes(examples, os_threshold, os_rate)
+
+    if pooling == "mean" or pooling == "cls_st":
         model = SentenceTransformer(model)
     elif pooling == "cls":
         transformer_model = Transformer(model)
@@ -252,7 +275,12 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default=5, required=False)
     parser.add_argument("--batch_size", type=int, default=8, required=False)
     parser.add_argument("--cased", type=bool, default=False, required=False)
+    parser.add_argument("--os_rate", type=int, default=None, required=False)
+    parser.add_argument("--os_threshold", type=float, default=None, required=False)
+    parser.add_argument("--seed", type=int, default=42, required=False)
     args = parser.parse_args()
+
+    seed_everything(args.seed)
 
     train(
         model=args.model,
@@ -262,5 +290,7 @@ if __name__ == "__main__":
         pooling=args.pooling,
         epochs=args.epochs,
         batch_size=args.batch_size,
-        lower_case=not args.cased
+        lower_case=not args.cased,
+        os_rate=args.os_rate,
+        os_threshold=args.os_threshold
     )

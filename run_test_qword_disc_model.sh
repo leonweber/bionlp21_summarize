@@ -3,6 +3,7 @@
 GEN_MODEL=$1
 DISC_MODEL=$2
 CASED="${3:-False}"
+DEVICE=1
 
 echo "CASED is $CASED"
 
@@ -12,7 +13,7 @@ mkdir -p $DISC_TRAIN_PRED_DIR
 
 DISC_TRAIN_PRED_FILE=$DISC_TRAIN_PRED_DIR/prediction.txt
 
-CUDA_VISIBLE_DEVICES=0 python run_eval_qword_discriminator.py \
+CUDA_VISIBLE_DEVICES=$DEVICE python run_eval_qword_discriminator.py \
   --model $DISC_MODEL \
   --source_file data/combined1/disc_data/train.source \
   --target_file data/combined1/disc_data/train.target \
@@ -36,7 +37,7 @@ mkdir -p $TEST_PRED_DIR
 
 TEST_PRED_FILE=$TEST_PRED_DIR/prediction.txt
 
-CUDA_VISIBLE_DEVICES=0 python run_eval_qword_discriminator.py \
+CUDA_VISIBLE_DEVICES=$DEVICE python run_eval_qword_discriminator.py \
   --model $DISC_MODEL \
   --source_file data/combined1/test/test.source \
   --target_file data/combined1/test/test.target \

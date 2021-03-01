@@ -22,6 +22,10 @@ def calculate_rouge_path(pred_path, tgt_path, save_path=None, **kwargs):
     pred_lns = [x.strip() for x in open(pred_path).readlines()]
     tgt_lns = [x.strip() for x in open(tgt_path).readlines()][: len(pred_lns)]
     metrics = calculate_rouge(pred_lns, tgt_lns, **kwargs)
+
+    for key, value in calculate_rouge(pred_lns, tgt_lns, return_precision_and_recall=True,**kwargs).items():
+        metrics["pr_" +key] = value
+
     if save_path is not None:
         save_json(metrics, save_path, indent=None)
     return metrics  # these print nicely
