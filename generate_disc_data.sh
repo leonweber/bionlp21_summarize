@@ -206,13 +206,54 @@ mkdir -p $COMBINED_DIR
 
 COMBI_FILE=$COMBINED_DIR/train_triples.tsv
 
-TRIPLET_FILE1=$MODEL_DIR/sim_data_gen_train/train_triples.tsv
-TRIPLET_FILE2=$MODEL_DIR/sim_data_disc_train/train_triples.tsv
+TRIPLET_FILE2=$MODEL_DIR/sim_data_gen_train/train_triples.tsv
+TRIPLET_FILE1=$MODEL_DIR/sim_data_disc_train/train_triples.tsv
 
 if [ ! -f $COMBI_FILE ];
 then
-  echo "Combining training files"
+  echo "Combining triplet training files"
   python combine_classification_data.py \
+    --format triplet \
+    --file1 $TRIPLET_FILE1 \
+    --file2 $TRIPLET_FILE2 \
+    --output_file $COMBI_FILE
+
+else
+  echo "Combination file $COMBI already exists!"
+fi
+
+# ----
+
+COMBI_FILE=$COMBINED_DIR/train_abs.tsv
+
+TRIPLET_FILE2=$MODEL_DIR/sim_data_gen_train/train_abs.tsv
+TRIPLET_FILE1=$MODEL_DIR/sim_data_disc_train/train_abs.tsv
+
+if [ ! -f $COMBI_FILE ];
+then
+  echo "Combining example training files"
+  python combine_classification_data.py \
+    --format example \
+    --file1 $TRIPLET_FILE1 \
+    --file2 $TRIPLET_FILE2 \
+    --output_file $COMBI_FILE
+
+else
+  echo "Combination file $COMBI already exists!"
+fi
+
+# ----
+
+COMBI_FILE=$COMBINED_DIR/train.tsv
+
+TRIPLET_FILE2=$MODEL_DIR/sim_data_gen_train/train.tsv
+TRIPLET_FILE1=$MODEL_DIR/sim_data_disc_train/train.tsv
+
+if [ ! -f $COMBI_FILE ];
+then
+  echo "Combining example training files"
+  python combine_classification_data.py \
+    --format example \
     --file1 $TRIPLET_FILE1 \
     --file2 $TRIPLET_FILE2 \
     --output_file $COMBI_FILE

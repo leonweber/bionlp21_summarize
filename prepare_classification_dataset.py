@@ -184,7 +184,8 @@ def generate_data_from_val_prediction(
 
     print(f"Building examples from {all_prediction_file}")
 
-    examples = []
+    examples_rel = []
+    examples_abs = []
     global_id = 0
     for j, (source, target) in tqdm(enumerate(zip(test_sources, test_targets)), total=len(test_targets)):
         # FIXME: Should we also add the gold standard target to the data set???
@@ -198,19 +199,25 @@ def generate_data_from_val_prediction(
         scores = [calculate_rouge([c], [target])["rougeL"] for c in candidates]
         max_score = max(scores)
 
-        for candidate, score in zip(candidates, scores):
+        for candidate, abs_score in zip(candidates, scores):
             if binary_score:
-                score = 1.0 if score == max_score else 0.0
+                score = 1.0 if abs_score == max_score else 0.0
             else:
                 # score = score / best_rouge
-                if score > 0:
-                    score = score / max_score
+                if abs_score > 0:
+                    score = abs_score / max_score
+                else:
+                    score = 0.0
 
-            examples.append(InputExample(guid=str(global_id), texts=[source, candidate], label=score))
+            examples_rel.append(InputExample(guid=str(global_id), texts=[source, candidate], label=score))
+            examples_abs.append(InputExample(guid=str(global_id), texts=[source, candidate], label=abs_score))
 
         global_id += 1
 
-    save_examples(examples, output_file)
+    save_examples(examples_rel, output_file)
+
+    abs_file = output_file.parent / (str(output_file.stem) + "_abs.tsv")
+    save_examples(examples_abs, abs_file)
 
 
 if __name__ == "__main__":

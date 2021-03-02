@@ -57,7 +57,7 @@ def combine_source_target_files(src_tgt_files: List[Tuple[Path, Path]], output_d
     target_writer.close()
 
 
-def combine_example_tsv_files(tsv_files: List[Path], output_dir: Path):
+def combine_example_tsv_files(tsv_files: List[Path], output_file: Path):
     global_id = 0
     all_examples = []
 
@@ -72,7 +72,7 @@ def combine_example_tsv_files(tsv_files: List[Path], output_dir: Path):
                 all_examples.append(InputExample(guid=global_id, texts=ex.texts, label=ex.label))
             global_id += 1
 
-    save_examples(all_examples, output_dir / "train.tsv")
+    save_examples(all_examples, output_file)
 
 
 def combine_triplet_tsv_files(tsv_files: List[Path], output_file: Path):
@@ -94,24 +94,28 @@ def combine_triplet_tsv_files(tsv_files: List[Path], output_file: Path):
 
 
 if __name__ == "__main__":
-    # parser = ArgumentParser()
-    # parser.add_argument("--file1", type=Path, required=True)
-    # parser.add_argument("--file2", type=Path, required=True)
-    # parser.add_argument("--output_file", type=Path, required=True)
-    # args = parser.parse_args()
+    parser = ArgumentParser()
+    parser.add_argument("--format", type=str, required=True)
+    parser.add_argument("--file1", type=Path, required=True)
+    parser.add_argument("--file2", type=Path, required=True)
+    parser.add_argument("--output_file", type=Path, required=True)
+    args = parser.parse_args()
+
+    if args.format == "triplet":
+        combine_triplet_tsv_files([args.file1, args.file2], args.output_file)
+    elif args.format == "example":
+        combine_example_tsv_files([args.file1, args.file2], args.output_file)
+
+    # output_dir = Path("data/combined1/train_all")
+    # output_dir.mkdir(parents=True, exist_ok=True)
     #
-    # combine_triplet_tsv_files([args.file1, args.file2], args.output_file)
-
-    output_dir = Path("data/combined1/train_all")
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    combine_source_target_files(
-        [
-            (Path("data/combined1/disc_data/train.source"), Path("data/combined1/disc_data/train.target")),
-             (Path("data/combined1/gen_data/train.source"), Path("data/combined1/gen_data/train.target"))
-        ],
-        output_dir
-    )
+    # combine_source_target_files(
+    #     [
+    #         (Path("data/combined1/disc_data/train.source"), Path("data/combined1/disc_data/train.target")),
+    #          (Path("data/combined1/gen_data/train.source"), Path("data/combined1/gen_data/train.target"))
+    #     ],
+    #     output_dir
+    # )
 
     # combine_data_sets(
     #     [
