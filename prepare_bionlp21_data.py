@@ -157,9 +157,25 @@ def build_two_stage_data(gen_train_size: int, disc_train_size: int, output_dir: 
     save_task_data_split(test_data, test_data_dir, "test_val", "val")
 
 
+def build_two_stage_data_only_train(gen_train_fraction: float, output_dir: Path):
+    train_data = read_task_data("dev", Path("data/task/train.source"), Path("data/task/train.target"))
+
+    gen_train, disc_train = train_test_split(train_data, train_size=gen_train_fraction)
+
+    gen_data_dir = output_dir / "gen_data"
+    gen_data_dir.mkdir(parents=True, exist_ok=True)
+    save_task_data_split(gen_train, gen_data_dir, "train")
+
+    disc_data_dir = output_dir / "disc_data"
+    disc_data_dir.mkdir(parents=True, exist_ok=True)
+    save_task_data_split(disc_train, disc_data_dir, "train")
+
+
+
 if __name__ == "__main__":
     # Read and convert training data
-    build_two_stage_data(600, 250, Path("data/combined1"))
+    # build_two_stage_data(600, 250, Path("data/combined1"))
+    build_two_stage_data_only_train(0.75, Path("data/task_0.75_split"))
 
     # data = read_and_clean_data(
     #     input_file=Path("data/MeQSum_ACL2019_BenAbacha_Demner-Fushman.csv"),

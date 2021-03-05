@@ -27,7 +27,7 @@ if __name__ == "__main__":
     parser.add_argument("--train", required=True)
     parser.add_argument("--val", required=True)
     parser.add_argument("--out", required=True)
-    parser.add_argument("--strategy", default="match", choices=["match", "match_exact", "balance"])
+    parser.add_argument("--strategy", default="match", choices=["match", "exact_match", "balance"])
     args = parser.parse_args()
 
     with open(args.val + ".target") as f:
@@ -58,6 +58,8 @@ if __name__ == "__main__":
         target_dist = val_dist
     elif args.strategy in ["balance"]:
         target_dist = defaultdict(lambda x: 1)
+    else:
+        raise ValueError("Unkown strategy: " + args.strategy)
 
     train_indices = resample_by_interrogative(target_dist=target_dist,
                                               interrogative_to_index=interrogative_to_index)
@@ -65,6 +67,6 @@ if __name__ == "__main__":
     train_target = [train_target[i] for i in train_indices]
 
     with open(args.out + ".source", "w") as f:
-        f.write("n".join(train_source))
+        f.write("".join(train_source))
     with open(args.out + ".target", "w") as f:
-        f.write("n".join(train_target))
+        f.write("".join(train_target))

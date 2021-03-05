@@ -29,7 +29,8 @@ then
     $DISC_TRAIN_SOURCE_FILE \
     $PRED_FILE \
     --num_beams 20 \
-    --num_return_sequences 10
+    --num_return_sequences 10 \
+    --bs 4
 else
   echo "Prediction file $PRED_FILE already exists!"
 fi
@@ -92,37 +93,11 @@ then
     $TEST_SOURCE_FILE \
     $PRED_FILE \
     --num_beams 20 \
-    --num_return_sequences 10
+    --num_return_sequences 10 \
+    --bs 4
 else
   echo "Prediction file $PRED_FILE already exists!"
 fi
-
-if [ ! -f $SIM_FILE ];
-then
-  echo "Calculating similarity for test examples"
-  python prepare_classification_dataset.py from_val_data \
-    --source_file $TEST_SOURCE_FILE \
-    --target_file $TEST_TARGET_FILE \
-    --prediction_file $PRED_FILE.all \
-    --output_file $SIM_FILE
-else
-  echo "Similarity file $SIM_FILE already exists"
-fi
-
-TRIPLES_FILE=$SIM_DATA_DIR/test_triples.tsv
-
-if [ ! -f $TRIPLES_FILE ];
-then
-  echo "Preparing triples for test examples"
-  python prepare_triplet_data.py \
-    --source_file $TEST_SOURCE_FILE \
-    --target_file $TEST_TARGET_FILE \
-    --sim_file $SIM_FILE \
-    --output_file $TRIPLES_FILE
-else
-  echo "Triples file $TRIPLES_FILE already exists"
-fi
-
 
 echo
 echo
@@ -157,7 +132,8 @@ then
     $GEN_TRAIN_SOURCE_FILE \
     $PRED_FILE \
     --num_beams 20 \
-    --num_return_sequences 10
+    --num_return_sequences 10 \
+    --bs 4
 else
   echo "Prediction file $PRED_FILE already exists!"
 fi
